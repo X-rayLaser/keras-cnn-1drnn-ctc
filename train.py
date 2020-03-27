@@ -1,9 +1,9 @@
 import os
 import logging
 import math
-from toolkit import get_meta_info, CERevaluator
-from toolkit.generators import LinesGenerator
-from toolkit.models import CtcModel, decode_greedy
+from keras_htr import get_meta_info, CERevaluator
+from keras_htr.generators import LinesGenerator
+from keras_htr.models import CtcModel, decode_greedy
 import tensorflow as tf
 from tensorflow.keras.callbacks import Callback
 

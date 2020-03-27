@@ -2,11 +2,11 @@ import os
 import math
 import numpy as np
 import tensorflow as tf
-from toolkit.models import decode_greedy, beam_search_decode
-from toolkit.edit_distance import compute_cer
+from keras_htr.models import decode_greedy, beam_search_decode
+from keras_htr.edit_distance import compute_cer
 
-from toolkit.models import compute_output_shape
-from toolkit.generators import prepare_x
+from keras_htr.models import compute_output_shape
+from keras_htr.generators import prepare_x, binarize
 
 
 def get_meta_info(path='lines_dataset/train'):
@@ -146,9 +146,6 @@ def recognize_line(model, image_path, image_height):
     labels = labellings[0]
     s = ''.join([chr(code) for code in labels])
     return s
-
-
-from toolkit.generators import binarize
 
 
 def recognize_document(model, image_path, image_height):

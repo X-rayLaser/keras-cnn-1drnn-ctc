@@ -1,5 +1,5 @@
-from toolkit import CERevaluator, get_meta_info, predict_labels, cer_on_batch
-from toolkit.generators import LinesGenerator
+from keras_htr import CERevaluator, get_meta_info, predict_labels, cer_on_batch
+from keras_htr.generators import LinesGenerator
 import tensorflow as tf
 import numpy as np
 

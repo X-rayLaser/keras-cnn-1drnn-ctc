@@ -1,5 +1,5 @@
-from toolkit import CERevaluator
-from toolkit.generators import LinesGenerator
+from keras_htr import CERevaluator
+from keras_htr.generators import LinesGenerator
 import tensorflow as tf
 
 

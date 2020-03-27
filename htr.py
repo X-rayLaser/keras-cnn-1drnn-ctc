@@ -1,6 +1,6 @@
 import tensorflow as tf
 import argparse
-from toolkit import recognize_document
+from keras_htr import recognize_document
 
 
 if __name__ == '__main__':

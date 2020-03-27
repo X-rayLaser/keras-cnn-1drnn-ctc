@@ -151,7 +151,7 @@ class MyExampleGenerator(BaseGenerator):
         return int(label)
 
 
-from toolkit.models import compute_output_shape
+from keras_htr.models import compute_output_shape
 
 
 class CtcGenerator(MyExampleGenerator):
