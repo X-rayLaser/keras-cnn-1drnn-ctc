@@ -1,0 +1,10 @@
+*.pyc
+iam_database/
+venv/
+words_dataset/
+lines_dataset/
+offline_htr.zip
+conv_lstm_model.h5
+iam_ondb/
+\.idea/
+*.png
