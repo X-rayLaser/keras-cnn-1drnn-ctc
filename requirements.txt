@@ -2,3 +2,4 @@ Pillow
 tensorflow>=2.0
 numpy
 scipy
+wordfreq
