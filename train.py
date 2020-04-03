@@ -85,6 +85,8 @@ if __name__ == '__main__':
     import argparse
 
     parser = argparse.ArgumentParser()
+    parser.add_argument('ds', type=str)
+    parser.add_argument('--model_path', type=str, default='conv_lstm_model.h5')
     parser.add_argument('--lr', type=float, default=0.001)
     parser.add_argument('--batch_size', type=int, default=1)
     parser.add_argument('--units', type=int, default=128)
@@ -93,6 +95,9 @@ if __name__ == '__main__':
     parser.add_argument('--augment', type=bool, default=False)
 
     args = parser.parse_args()
+
+    dataset_path = args.ds
+    model_save_path = args.model_path
     batch_size = args.batch_size
     units = args.units
     lr = args.lr
@@ -105,9 +110,11 @@ if __name__ == '__main__':
     meta_info = get_meta_info()
     num_examples = meta_info['num_examples']
     image_height = meta_info['average_height']
+    train_path = os.path.join(dataset_path, 'train')
+    val_path = os.path.join(dataset_path, 'validation')
 
-    train_generator = LinesGenerator('lines_dataset/train', image_height, batch_size, augment=augment)
-    val_generator = LinesGenerator('lines_dataset/validation', image_height, batch_size)
+    train_generator = LinesGenerator(train_path, image_height, batch_size, augment=augment)
+    val_generator = LinesGenerator(val_path, image_height, batch_size)
 
     ctc_model_factory = CtcModel(units=units, num_labels=128,
                                  height=train_generator.image_height, channels=1)
@@ -121,15 +128,15 @@ if __name__ == '__main__':
     steps_per_epoch = math.ceil(train_generator.size / batch_size)
     val_steps = math.ceil(val_generator.size / batch_size)
 
-    checkpoint = CtcModelCheckpoint(ctc_model_factory, 'conv_lstm_model.h5')
+    checkpoint = CtcModelCheckpoint(ctc_model_factory, model_save_path)
 
-    train_debug_generator = LinesGenerator('lines_dataset/train', image_height, batch_size=1)
-    val_debug_generator = LinesGenerator('lines_dataset/validation', image_height, batch_size=1)
+    train_debug_generator = LinesGenerator(train_path, image_height, batch_size=1)
+    val_debug_generator = LinesGenerator(val_path, image_height, batch_size=1)
     output_debugger = DebugCallback(train_debug_generator, val_debug_generator,
                                     ctc_model_factory, interval=debug_interval)
 
-    cer_generator = LinesGenerator('lines_dataset/train', image_height, batch_size=1)
-    cer_val_generator = LinesGenerator('lines_dataset/validation', image_height, batch_size=1)
+    cer_generator = LinesGenerator(train_path, image_height, batch_size=1)
+    cer_val_generator = LinesGenerator(val_path, image_height, batch_size=1)
     CER_metric = CerCallback(cer_generator, cer_val_generator,
                              ctc_model_factory, steps=16, interval=debug_interval)
 

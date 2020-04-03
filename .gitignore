@@ -8,3 +8,6 @@ conv_lstm_model.h5
 iam_ondb/
 \.idea/
 *.png
+dist/
+build/
+keras_htr.egg-info/

@@ -1,4 +1,4 @@
-from keras_htr import CERevaluator, get_meta_info, predict_labels, cer_on_batch
+from keras_htr import CERevaluator, predict_labels, cer_on_batch
 from keras_htr.generators import LinesGenerator
 import tensorflow as tf
 import numpy as np
@@ -18,10 +18,9 @@ if __name__ == '__main__':
 
     model_path = args.model
     dataset_path = args.dataset
-    meta_info = get_meta_info()
-    image_height = meta_info['average_height']
 
     model = tf.keras.models.load_model(model_path, custom_objects={'tf': tf})
+    batch_size, image_height, image_width, channels = model.input_shape
 
     lines_generator = LinesGenerator(dataset_path, image_height, batch_size=1)
 
