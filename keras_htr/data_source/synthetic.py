@@ -1,5 +1,5 @@
 from .base import Source
-from PIL import Image, ImageDraw, ImageFont
+from PIL import Image, ImageDraw, ImageFont, ImageOps
 from wordfreq import top_n_list
 
 
@@ -26,4 +26,5 @@ class SyntheticSource(Source):
         line_image = Image.new('L', size=(image_width, image_height))
         d = ImageDraw.Draw(line_image)
         d.text((padding, padding), text, font=fnt, fill=(255,))
-        return line_image
+
+        return ImageOps.invert(line_image)

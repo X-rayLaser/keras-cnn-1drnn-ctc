@@ -25,7 +25,6 @@ def get_source(config):
         source_class_name = d['source_class']
         params = d['source_args']
     else:
-        print('HERE')
         # treating config as fully-qualified class name
         source_class_name = config
         params = dict()
@@ -42,13 +41,20 @@ if __name__ == '__main__':
     import argparse
 
     parser = argparse.ArgumentParser()
-    parser.add_argument('--config', type=str, default='keras_htr.data_source.synthetic.SyntheticSource')
+    parser.add_argument('--config', type=str, default='')
+    parser.add_argument('--source', type=str, default='keras_htr.data_source.synthetic.SyntheticSource')
     parser.add_argument('--size', type=int, default=100)
     parser.add_argument('--destination', type=str, default='lines_dataset')
 
     args = parser.parse_args()
+    fully_qualified_source = args.source
+    config = args.config
 
-    source = get_source(args.config)
+    if config != '':
+        source = get_source(config)
+    else:
+        source = get_source(fully_qualified_source)
+
     destination = args.destination
 
     if not os.path.isdir(destination):

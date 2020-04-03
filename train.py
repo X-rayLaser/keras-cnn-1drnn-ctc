@@ -107,11 +107,12 @@ if __name__ == '__main__':
 
     print('augment is {}'.format(augment))
 
-    meta_info = get_meta_info()
-    num_examples = meta_info['num_examples']
-    image_height = meta_info['average_height']
     train_path = os.path.join(dataset_path, 'train')
     val_path = os.path.join(dataset_path, 'validation')
+
+    meta_info = get_meta_info(path=train_path)
+    num_examples = meta_info['num_examples']
+    image_height = meta_info['average_height']
 
     train_generator = LinesGenerator(train_path, image_height, batch_size, augment=augment)
     val_generator = LinesGenerator(val_path, image_height, batch_size)
