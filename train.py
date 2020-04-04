@@ -6,6 +6,7 @@ from keras_htr.generators import LinesGenerator
 from keras_htr.models import CtcModel, decode_greedy
 import tensorflow as tf
 from tensorflow.keras.callbacks import Callback
+from keras_htr.char_table import CharTable
 
 os.environ["TF_CPP_MIN_LOG_LEVEL"] = "3"
 logging.getLogger("tensorflow").setLevel(logging.CRITICAL)
@@ -13,8 +14,9 @@ logging.getLogger("tensorflow_hub").setLevel(logging.CRITICAL)
 
 
 class DebugCallback(Callback):
-    def __init__(self, train_gen, val_gen, ctc_model_factory, interval=10):
+    def __init__(self, char_table, train_gen, val_gen, ctc_model_factory, interval=10):
         super().__init__()
+        self._char_table = char_table
         self._train_gen = train_gen
         self._val_gen = val_gen
         self._ctc_model_factory = ctc_model_factory
@@ -34,18 +36,19 @@ class DebugCallback(Callback):
 
             (X, labels, input_lengths, label_lengths), labels = example
 
-            expected = ''.join([chr(code) for code in labels[0]])
+            expected = ''.join([self._char_table.get_character(code) for code in labels[0]])
 
             ypred = self._ctc_model_factory.inference_model.predict(X)
             labels = decode_greedy(ypred, input_lengths)
-            predicted = ''.join([chr(code) for code in labels[0]])
+            predicted = ''.join([self._char_table.get_character(code) for code in labels[0]])
 
             print(expected, '->', predicted)
 
 
 class CerCallback(Callback):
-    def __init__(self, train_gen, val_gen, ctc_model_factory, steps=None, interval=10):
+    def __init__(self, char_table, train_gen, val_gen, ctc_model_factory, steps=None, interval=10):
         super().__init__()
+        self._char_table = char_table
         self._train_gen = train_gen
         self._val_gen = val_gen
         self._ctc_model_factory = ctc_model_factory
@@ -61,14 +64,6 @@ class CerCallback(Callback):
     def compute_cer(self, gen):
         cer = CERevaluator(self._ctc_model_factory.inference_model, gen, self._steps)
         return cer.evaluate()
-
-    def show_output(self, X, input_lengths, labels):
-        expected = ''.join([chr(code) for code in labels[0]])
-
-        ypred = self._ctc_model_factory.inference_model.predict(X)
-        labels = self._ctc_model_factory.decode_greedy(ypred, input_lengths)
-        predicted = ''.join([chr(code) for code in labels[0]])
-        print(expected, '->', predicted)
 
 
 class CtcModelCheckpoint(Callback):
@@ -114,8 +109,12 @@ if __name__ == '__main__':
     num_examples = meta_info['num_examples']
     image_height = meta_info['average_height']
 
-    train_generator = LinesGenerator(train_path, image_height, batch_size, augment=augment)
-    val_generator = LinesGenerator(val_path, image_height, batch_size)
+    char_table_path = os.path.join(dataset_path, 'character_table.txt')
+
+    char_table = CharTable(char_table_path)
+
+    train_generator = LinesGenerator(train_path, char_table, image_height, batch_size, augment=augment)
+    val_generator = LinesGenerator(val_path, char_table, image_height, batch_size)
 
     ctc_model_factory = CtcModel(units=units, num_labels=128,
                                  height=train_generator.image_height, channels=1)
@@ -131,14 +130,14 @@ if __name__ == '__main__':
 
     checkpoint = CtcModelCheckpoint(ctc_model_factory, model_save_path)
 
-    train_debug_generator = LinesGenerator(train_path, image_height, batch_size=1)
-    val_debug_generator = LinesGenerator(val_path, image_height, batch_size=1)
-    output_debugger = DebugCallback(train_debug_generator, val_debug_generator,
+    train_debug_generator = LinesGenerator(train_path, char_table, image_height, batch_size=1)
+    val_debug_generator = LinesGenerator(val_path, char_table, image_height, batch_size=1)
+    output_debugger = DebugCallback(char_table, train_debug_generator, val_debug_generator,
                                     ctc_model_factory, interval=debug_interval)
 
-    cer_generator = LinesGenerator(train_path, image_height, batch_size=1)
-    cer_val_generator = LinesGenerator(val_path, image_height, batch_size=1)
-    CER_metric = CerCallback(cer_generator, cer_val_generator,
+    cer_generator = LinesGenerator(train_path, char_table, image_height, batch_size=1)
+    cer_val_generator = LinesGenerator(val_path, char_table, image_height, batch_size=1)
+    CER_metric = CerCallback(char_table, cer_generator, cer_val_generator,
                              ctc_model_factory, steps=16, interval=debug_interval)
 
     callbacks = [checkpoint, output_debugger, CER_metric]

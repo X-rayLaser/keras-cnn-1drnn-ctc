@@ -45,6 +45,15 @@ def create_lines_dataset(data_source,
         print('Creating meta information for {} split folder'.format(split_folder))
         create_meta_information(split_folder)
 
+    print('Creating a character table')
+
+    split_folders = dest_texts.keys()
+    char_table_lines = create_char_table(split_folders)
+
+    char_table_path = os.path.join(destination_folder, 'character_table.txt')
+    with open(char_table_path, 'w') as f:
+        f.write(char_table_lines)
+
 
 class FileCopier:
     def __init__(self, folder):
@@ -113,3 +122,17 @@ def create_meta_information(dataset_path):
     meta_path = os.path.join(dataset_path, 'meta.json')
     with open(meta_path, 'w') as f:
         f.write(s)
+
+
+def create_char_table(split_folders):
+    chars = set()
+    for folder in split_folders:
+        lines_path = os.path.join(folder, 'lines.txt')
+        with open(lines_path) as f:
+            for line in f.readlines():
+                text = line.rstrip()
+                line_chars = list(text)
+                chars = chars.union(line_chars)
+
+    char_table = '\n'.join(list(chars))
+    return char_table

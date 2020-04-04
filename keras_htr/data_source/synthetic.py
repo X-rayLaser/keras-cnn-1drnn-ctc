@@ -4,11 +4,12 @@ from wordfreq import top_n_list
 
 
 class SyntheticSource(Source):
-    def __init__(self, num_examples=100):
+    def __init__(self, num_examples=1000):
         self._num_examples = num_examples
 
     def __iter__(self):
         words = top_n_list(lang='en', n=self._num_examples)
+
         for w in words:
             image = self.create_image(w)
             yield w, image

@@ -134,7 +134,7 @@ def line_segmentation(a, threshold=5):
     return lines
 
 
-def recognize_line(model, image_path, image_height):
+def recognize_line(model, image_path, image_height, char_table):
     x = prepare_x(image_path, image_height)
     lstm_input_shape = compute_output_shape(x.shape)
     width, channels = lstm_input_shape
@@ -144,11 +144,11 @@ def recognize_line(model, image_path, image_height):
     labellings = predict_labels(model, X, input_lengths)
 
     labels = labellings[0]
-    s = ''.join([chr(code) for code in labels])
+    s = ''.join([char_table.get_character(code) for code in labels])
     return s
 
 
-def recognize_document(model, image_path, image_height):
+def recognize_document(model, image_path, image_height, char_table):
     img = tf.keras.preprocessing.image.load_img(image_path)
     a = tf.keras.preprocessing.image.img_to_array(img)
     a = binarize(a)
@@ -159,7 +159,7 @@ def recognize_document(model, image_path, image_height):
 
         image = tf.keras.preprocessing.image.array_to_img(255.0 - image_array)
         image.save('tmp.png')
-        s = recognize_line(model, 'tmp.png', image_height)
+        s = recognize_line(model, 'tmp.png', image_height, char_table)
         lines.append(s)
 
     return '\n'.join(lines)

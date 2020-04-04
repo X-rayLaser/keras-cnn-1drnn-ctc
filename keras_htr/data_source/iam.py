@@ -9,6 +9,17 @@ class IAMSource(Source):
                  line_images_root='iam_database/iam_database_lines'):
         self._xml_root = xml_root
         self._images_root = line_images_root
+        self._validate_paths()
+
+    def _validate_paths(self):
+        if not (os.path.isdir(self._xml_root) and os.path.isdir(self._images_root)):
+            iam_url = 'http://www.fki.inf.unibe.ch/databases/iam-handwriting-database'
+            msg = "IAM database directories missing: {} and {}. " \
+                  "If you don't have IAM database, you can " \
+                  "download it from this URL {}".format(self._xml_root,
+                                                        self._images_root,
+                                                        iam_url)
+            raise Exception(msg)
 
     def __iter__(self):
         finder = LineImageFinder(self._images_root)

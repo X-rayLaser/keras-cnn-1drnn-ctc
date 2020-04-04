@@ -200,10 +200,12 @@ def get_dictionary():
             dictionary.append(line.rstrip())
     return dictionary
 
+from keras_htr.char_table import CharTable
 
 class LinesGenerator(BaseGenerator):
-    def __init__(self, dataset_root, image_height, batch_size=4, augment=False):
+    def __init__(self, dataset_root, char_table, image_height, batch_size=4, augment=False):
         self._root = dataset_root
+        self._char_table = char_table
         self._batch_size = batch_size
         self._augment = augment
 
@@ -302,14 +304,14 @@ class LinesGenerator(BaseGenerator):
         if len(labellings) >= 1:
             yield image_arrays, labellings
 
-    def text_to_ascii_codes(self, text):
-        return [ord(ch) for ch in text]
+    def text_to_class_labels(self, text):
+        return [self._char_table.get_label(ch) for ch in text]
 
     def get_example(self, line_index):
         text = self._lines[line_index]
         image_path = os.path.join(self._root, str(line_index) + '.png')
         x = prepare_x(image_path, self._image_height, transform=self._augment)
-        y = self.text_to_ascii_codes(text)
+        y = self.text_to_class_labels(text)
         return x, y
 
 

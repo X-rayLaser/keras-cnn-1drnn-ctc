@@ -60,7 +60,8 @@ if __name__ == '__main__':
     if not os.path.isdir(destination):
         os.makedirs(destination)
 
-    response = input('All existing data in the directory will be erased. Continue (Y/N) ?')
+    response = input('All existing data in the directory {} '
+                     'will be erased. Continue (Y/N) ?'.format(destination))
     if response == 'Y':
         shutil.rmtree(destination)
         create_lines_dataset(source, destination_folder=destination,
