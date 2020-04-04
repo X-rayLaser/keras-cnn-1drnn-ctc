@@ -1,7 +1,8 @@
 import tensorflow as tf
 import argparse
-from keras_htr import recognize_document
+from keras_htr import recognize_line
 from keras_htr.char_table import CharTable
+
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
@@ -20,5 +21,5 @@ if __name__ == '__main__':
     model = tf.keras.models.load_model(model_path, custom_objects={'tf': tf})
     batch_size, image_height, image_width, channels = model.input_shape
 
-    res = recognize_document(model, image_path, image_height, char_table)
+    res = recognize_line(model, image_path, image_height, char_table)
     print('Recognized text: "{}"'.format(res))
