@@ -25,7 +25,7 @@ class IAMSource(Source):
         finder = LineImageFinder(self._images_root)
 
         for line, file_path in get_lines_with_file_paths(self._xml_root, finder):
-            yield line, file_path
+            yield file_path, line
 
 
 def file_iterator(path):

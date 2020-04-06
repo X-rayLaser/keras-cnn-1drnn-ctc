@@ -56,7 +56,7 @@ build a character table, collect useful meta-information about the data set such
 average image height, width and more.
 
 To train a model on your data, you need to create your subclass of Source class and 
-implement an iterator method that yields a pair (text, line_image) at each step. 
+implement an iterator method that yields a pair (line_image, text) at each step.
 Here line_image is either a path to an image file or Pillow image object, the text 
 is a corresponding transcription.
 

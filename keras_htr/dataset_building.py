@@ -15,7 +15,7 @@ def create_lines_dataset(data_source,
 
     example_generator = data_source.__iter__()
     for triple in split_examples(example_generator, size, train_fraction, val_fraction):
-        folder_name, text, file_path = triple
+        folder_name, file_path, text = triple
         split_destination = os.path.join(destination_folder, folder_name)
         if folder_name not in dest_to_copier:
             dest_to_copier[folder_name] = FileCopier(split_destination)

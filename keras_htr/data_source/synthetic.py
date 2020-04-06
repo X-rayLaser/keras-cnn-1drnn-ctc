@@ -12,7 +12,7 @@ class SyntheticSource(Source):
 
         for w in words:
             image = self.create_image(w)
-            yield w, image
+            yield image, w
 
     def create_image(self, text):
         initial_image = Image.new('L', size=(100, 80))
