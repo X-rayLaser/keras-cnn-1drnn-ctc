@@ -13,7 +13,7 @@ implementations for HTR tasks.
 - handwriting language independence
 
 ## Built-in models
-- 1D-LSTM [1] by Joan Puigcerver
+- CNN-1DRNN-CTC [1]
 
 # Quick start
 

@@ -83,14 +83,14 @@ class CtcModel:
         x = tf.keras.layers.Dropout(rate=0.5)(x)
         x = lstm(x)
 
-        #x = tf.keras.layers.Dropout(rate=0.5)(x)
-        #x = tf.keras.layers.Bidirectional(tf.keras.layers.LSTM(units, return_sequences=True))(x)
+        x = tf.keras.layers.Dropout(rate=0.5)(x)
+        x = tf.keras.layers.Bidirectional(tf.keras.layers.LSTM(units, return_sequences=True))(x)
 
-        #x = tf.keras.layers.Dropout(rate=0.5)(x)
-        #x = tf.keras.layers.Bidirectional(tf.keras.layers.LSTM(units, return_sequences=True))(x)
+        x = tf.keras.layers.Dropout(rate=0.5)(x)
+        x = tf.keras.layers.Bidirectional(tf.keras.layers.LSTM(units, return_sequences=True))(x)
 
-        #x = tf.keras.layers.Dropout(rate=0.5)(x)
-        #x = tf.keras.layers.Bidirectional(tf.keras.layers.LSTM(units, return_sequences=True))(x)
+        x = tf.keras.layers.Dropout(rate=0.5)(x)
+        x = tf.keras.layers.Bidirectional(tf.keras.layers.LSTM(units, return_sequences=True))(x)
 
         x = tf.keras.layers.Dropout(rate=0.5)(x)
         x = tf.keras.layers.Bidirectional(tf.keras.layers.LSTM(units, return_sequences=True))(x)
