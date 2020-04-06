@@ -2,7 +2,7 @@
 
 Easy to use toolkit for the rapid development of offline handwritten text recognition (HTR) system. 
 The toolkit provides a set of useful utilities and scripts for training and evaluating 
-models and performing recognition. It is shipped with ready-to-train model 
+models and performing line recognition. It is shipped with ready-to-train model 
 implementations for HTR tasks.
 
 ## Key features
