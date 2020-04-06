@@ -51,7 +51,7 @@ python htr.py conv_lstm_model.h5 temp_ds/character_table.txt temp_ds/test/0.png
 # Data sources
 
 A data source is a Python generator that yields raw examples in the form of tuples 
-(text, line_image). The Keras-HTR toolkit uses data sources to construct a train/val/test split, 
+(line_image, text). The Keras-HTR toolkit uses data sources to construct a train/val/test split,
 build a character table, collect useful meta-information about the data set such as 
 average image height, width and more.
 

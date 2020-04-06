@@ -43,7 +43,7 @@ if __name__ == '__main__':
     parser = argparse.ArgumentParser()
     parser.add_argument('--config', type=str, default='')
     parser.add_argument('--source', type=str, default='keras_htr.data_source.synthetic.SyntheticSource')
-    parser.add_argument('--size', type=int, default=100)
+    parser.add_argument('--size', type=int, default=1000)
     parser.add_argument('--destination', type=str, default='lines_dataset')
 
     args = parser.parse_args()
