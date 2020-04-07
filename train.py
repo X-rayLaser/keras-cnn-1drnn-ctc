@@ -196,5 +196,5 @@ if __name__ == '__main__':
 
     args = parser.parse_args()
 
-    #fit_ctc_model(args)
-    fit_attention_model(args)
+    fit_ctc_model(args)
+    #fit_attention_model(args)
