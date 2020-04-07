@@ -110,13 +110,31 @@ def create_meta_information(dataset_path):
             widths.append(image.width)
             heights.append(image.height)
 
-    d = dict(max_width=int(np.max(widths)),
-             max_height=int(np.max(heights)),
-             min_width=int(np.min(widths)),
-             min_height=int(np.min(heights)),
-             average_width=int(np.mean(widths)),
-             average_height=int(np.mean(heights)),
-             num_examples=len(widths))
+    lines_path = os.path.join(dataset_path, 'lines.txt')
+
+    text_lengths = []
+    with open(lines_path) as f:
+        for row in f.readlines():
+            line = row.rstrip('\n')
+            text_lengths.append(len(line))
+
+    max_width = int(np.max(widths))
+    max_height = int(np.max(heights))
+    min_width = int(np.min(widths))
+    min_height = int(np.min(heights))
+    average_width = int(np.mean(widths))
+    average_height = int(np.mean(heights))
+    max_text_length = int(np.max(text_lengths))
+    num_examples = len(widths)
+
+    d = dict(max_width=max_width,
+             max_height=max_height,
+             min_width=min_width,
+             min_height=min_height,
+             average_width=average_width,
+             average_height=average_height,
+             max_text_length=max_text_length,
+             num_examples=num_examples)
 
     s = json.dumps(d)
     meta_path = os.path.join(dataset_path, 'meta.json')
