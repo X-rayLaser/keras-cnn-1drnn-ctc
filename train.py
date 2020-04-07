@@ -22,8 +22,8 @@ class DebugCallback(Callback):
         self._ctc_model_factory = ctc_model_factory
         self._interval = interval
 
-    def on_epoch_end(self, epoch, logs=None):
-        if epoch % self._interval == 0 and epochs > 0:
+    def on_epoch_begin(self, epoch, logs=None):
+        if epoch % self._interval == 0 and epoch > 0:
             print('Predictions on training inputs:')
             self.show_predictions(self._train_gen)
             print('Predictions on validation inputs:')
@@ -31,7 +31,7 @@ class DebugCallback(Callback):
 
     def show_predictions(self, gen):
         for i, example in enumerate(gen.__iter__()):
-            if i > 10:
+            if i > 5:
                 break
 
             (X, labels, input_lengths, label_lengths), labels = example
@@ -56,7 +56,7 @@ class CerCallback(Callback):
         self._interval = interval
 
     def on_epoch_begin(self, epoch, logs=None):
-        if epoch % self._interval == 0:
+        if epoch % self._interval == 0 and epoch > 0:
             train_cer = self.compute_cer(self._train_gen)
             val_cer = self.compute_cer(self._val_gen)
             print('train CER {}; val CER {}'.format(train_cer, val_cer))
@@ -116,7 +116,7 @@ if __name__ == '__main__':
     train_generator = LinesGenerator(train_path, char_table, image_height, batch_size, augment=augment)
     val_generator = LinesGenerator(val_path, char_table, image_height, batch_size)
 
-    ctc_model_factory = CtcModel(units=units, num_labels=128,
+    ctc_model_factory = CtcModel(units=units, num_labels=char_table.size,
                                  height=train_generator.image_height, channels=1)
     model = ctc_model_factory.training_model
     loss = ctc_model_factory.get_loss()

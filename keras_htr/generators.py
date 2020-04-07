@@ -3,6 +3,8 @@ import random
 import tensorflow as tf
 import numpy as np
 import json
+import scipy
+from keras_htr.models import compute_output_shape
 
 
 def get_zero_padded_array(image_path, target_height):
@@ -33,7 +35,6 @@ def get_image_array(image_path, target_height):
 
 
 def pad_image_height(img, target_height):
-    import scipy
     a = tf.keras.preprocessing.image.img_to_array(img)
 
     height = a.shape[0]
@@ -151,9 +152,6 @@ class MyExampleGenerator(BaseGenerator):
         return int(label)
 
 
-from keras_htr.models import compute_output_shape
-
-
 class CtcGenerator(MyExampleGenerator):
     def __init__(self, dataset_root, image_height, dictionary):
         super().__init__(dataset_root, image_height, batch_size=1)
@@ -200,14 +198,18 @@ def get_dictionary():
             dictionary.append(line.rstrip())
     return dictionary
 
-from keras_htr.char_table import CharTable
 
 class LinesGenerator(BaseGenerator):
-    def __init__(self, dataset_root, char_table, image_height, batch_size=4, augment=False):
+    def __init__(self, dataset_root, char_table, image_height, batch_size=4, augment=False, batch_adapter=None):
         self._root = dataset_root
         self._char_table = char_table
         self._batch_size = batch_size
         self._augment = augment
+
+        if batch_adapter is None:
+            self._adapter = CTCAdapter()
+        else:
+            self._adapter = batch_adapter
 
         meta_path = os.path.join(dataset_root, 'meta.json')
         with open(meta_path) as f:
@@ -236,55 +238,8 @@ class LinesGenerator(BaseGenerator):
 
     def __iter__(self):
         while True:
-            for image_arrays, labellings in self.get_batches():
-                current_batch_size = len(labellings)
-
-                padded_arrays = self.pad_image_arrays(image_arrays)
-
-                X = np.array(padded_arrays).reshape(current_batch_size, *padded_arrays[0].shape)
-
-                padded_labellings = self.pad_labellings(labellings)
-
-                labels = np.array(padded_labellings, dtype=np.int32).reshape(current_batch_size, -1)
-
-                lstm_input_shapes = [compute_output_shape(a.shape) for a in image_arrays]
-                widths = [width for width, channels in lstm_input_shapes]
-                input_lengths = np.array(widths, dtype=np.int32).reshape(current_batch_size, 1)
-
-                label_lengths = np.array([len(labelling) for labelling in labellings],
-                                         dtype=np.int32).reshape(current_batch_size, 1)
-
-                yield [X, labels, input_lengths, label_lengths], labels
-
-    def pad_image_arrays(self, image_arrays):
-        max_width = max([a.shape[1] for a in image_arrays])
-        return [self.pad_array_width(a, max_width) for a in image_arrays]
-
-    def pad_labellings(self, labellings, padding_code=0):
-        max_length = max([len(labels) for labels in labellings])
-        padded_labellings = []
-        for labels in labellings:
-            padding_size = max_length - len(labels)
-            assert padding_code >= 0
-            new_labelling = labels + [padding_code] * padding_size
-            assert len(new_labelling) > 0
-            padded_labellings.append(new_labelling)
-
-        return padded_labellings
-
-    def pad_array_width(self, a, target_width):
-        import scipy
-
-        width = a.shape[1]
-
-        right_padding = target_width - width
-
-        assert right_padding >= 0
-
-        horizontal_padding = (0, right_padding)
-        vertical_padding = (0, 0)
-        depth_padding = (0, 0)
-        return scipy.pad(a, pad_width=[vertical_padding, horizontal_padding, depth_padding])
+            for batch in self.get_batches():
+                yield self._adapter.adapt_batch(batch)
 
     def get_batches(self):
         random.shuffle(self._indices)
@@ -356,3 +311,60 @@ def binarize(image_array, threshold=200, invert=True):
 
 def rgb_to_grayscale(a):
     return a[:, :, 0] * 0.2125 + a[:, :, 1] * 0.7154 + a[:, :, 2] * 0.0721
+
+
+class BatchAdapter:
+    def adapt_batch(self, batch):
+        raise NotImplementedError
+
+
+class CTCAdapter(BatchAdapter):
+    def adapt_batch(self, batch):
+        image_arrays, labellings = batch
+
+        current_batch_size = len(labellings)
+
+        padded_arrays = self._pad_image_arrays(image_arrays)
+
+        X = np.array(padded_arrays).reshape(current_batch_size, *padded_arrays[0].shape)
+
+        padded_labellings = self._pad_labellings(labellings)
+
+        labels = np.array(padded_labellings, dtype=np.int32).reshape(current_batch_size, -1)
+
+        lstm_input_shapes = [compute_output_shape(a.shape) for a in image_arrays]
+        widths = [width for width, channels in lstm_input_shapes]
+        input_lengths = np.array(widths, dtype=np.int32).reshape(current_batch_size, 1)
+
+        label_lengths = np.array([len(labelling) for labelling in labellings],
+                                 dtype=np.int32).reshape(current_batch_size, 1)
+
+        return [X, labels, input_lengths, label_lengths], labels
+
+    def _pad_image_arrays(self, image_arrays):
+        max_width = max([a.shape[1] for a in image_arrays])
+        return [self._pad_array_width(a, max_width) for a in image_arrays]
+
+    def _pad_labellings(self, labellings, padding_code=0):
+        max_length = max([len(labels) for labels in labellings])
+        padded_labellings = []
+        for labels in labellings:
+            padding_size = max_length - len(labels)
+            assert padding_code >= 0
+            new_labelling = labels + [padding_code] * padding_size
+            assert len(new_labelling) > 0
+            padded_labellings.append(new_labelling)
+
+        return padded_labellings
+
+    def _pad_array_width(self, a, target_width):
+        width = a.shape[1]
+
+        right_padding = target_width - width
+
+        assert right_padding >= 0
+
+        horizontal_padding = (0, right_padding)
+        vertical_padding = (0, 0)
+        depth_padding = (0, 0)
+        return scipy.pad(a, pad_width=[vertical_padding, horizontal_padding, depth_padding])

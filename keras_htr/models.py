@@ -149,3 +149,51 @@ def beam_search_decode(inputs, input_lengths):
         dense = tf.sparse.to_dense(decoded[0])
         res = sess.run(dense)
         return res
+
+
+def conv_encoder_decoder_model_with_attention(height, channels=1, units=128, output_size=128):
+    encoder_inputs = tf.keras.layers.Input(shape=(height, None, channels))
+    decoder_inputs = tf.keras.layers.Input(shape=(None, output_size))
+
+    encoder = make_encoder_model(height, channels, units)
+    decoder = make_decoder_model(units, output_size)
+
+    x = encoder_inputs
+    encoder_outputs, state_h, state_c = encoder(x)
+    output = decoder([decoder_inputs, state_h, state_c])
+
+    training_model = tf.keras.Model([encoder_inputs, decoder_inputs], output)
+
+
+def make_encoder_model(height, channels, units):
+    conv_net = create_conv_model(height, channels)
+    encoder_inputs = tf.keras.layers.Input(shape=(height, None, channels))
+    x = encoder_inputs
+    features = conv_net(x)
+
+    encoder_outputs, state_h, state_c = tf.keras.layers.LSTM(units, return_sequences=True, return_state=True)(features)
+
+    return tf.keras.Model(encoder_inputs, [encoder_outputs, state_h, state_c])
+
+
+def make_decoder_model(units=128, output_size=128):
+    decoder_lstm = tf.keras.layers.LSTM(units, return_sequences=True, return_state=True)
+    decoder_inputs = tf.keras.layers.Input(shape=(None, output_size))
+    decoder_states = [tf.keras.layers.Input(shape=(None, units)),
+                      tf.keras.layers.Input(shape=(None, units))]
+
+    decoder_outputs, _, _ = decoder_lstm(decoder_inputs,
+                                         initial_state=decoder_states)
+    decoder_dense =  tf.keras.layers.Dense(output_size, activation='softmax')
+    decoder_outputs = decoder_dense(decoder_outputs)
+    return tf.keras.Model([decoder_inputs] + decoder_states, decoder_outputs)
+
+
+def make_context_model():
+    prev_state = tf.keras.layers.Input(shape=(None, 128))
+    activations = tf.keras.layers.Input(shape=(None, None, 128))
+
+    densor = tf.keras.layers.TimeDistributed(tf.keras.layers.Dense(units=1, activation='linear'))
+    softmax = tf.keras.layers.Softmax(axis=-1)
+
+    tf.keras.layers.RepeatVector()

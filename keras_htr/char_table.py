@@ -14,7 +14,7 @@ class CharTable:
         return char_to_label, label_to_char
 
     @property
-    def num_labels(self):
+    def size(self):
         return len(self._char_to_label)
 
     def get_label(self, ch):
