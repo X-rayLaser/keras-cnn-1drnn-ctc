@@ -189,11 +189,32 @@ def make_decoder_model(units=128, output_size=128):
     return tf.keras.Model([decoder_inputs] + decoder_states, decoder_outputs)
 
 
-def make_context_model():
-    prev_state = tf.keras.layers.Input(shape=(None, 128))
-    activations = tf.keras.layers.Input(shape=(None, None, 128))
+def make_context_model(max_image_width, max_text_length, encoder_num_units):
+    repeater = tf.keras.layers.RepeatVector(max_text_length)
+    concatenator = tf.keras.layers.Concatenate(axis=2)
 
-    densor = tf.keras.layers.TimeDistributed(tf.keras.layers.Dense(units=1, activation='linear'))
-    softmax = tf.keras.layers.Softmax(axis=-1)
+    densor1 = tf.keras.layers.TimeDistributed(tf.keras.layers.Dense(units=10, activation='relu'))
+    densor2 = tf.keras.layers.TimeDistributed(tf.keras.layers.Dense(units=1, activation='linear'))
 
-    tf.keras.layers.RepeatVector()
+    softmax = tf.keras.layers.Softmax(axis=1)
+
+    dotter = tf.keras.layers.Dot(axes=(1, 1))
+
+    state_h = tf.keras.layers.Input(shape=(None, encoder_num_units))
+    state_c = tf.keras.layers.Input(shape=(None, encoder_num_units))
+    encoder_states = [state_h, state_c]
+
+    encoder_activations = tf.keras.layers.Input(shape=(None, max_image_width, encoder_num_units))
+
+    state_h = repeater(state_h)
+    state_c = repeater(state_c)
+
+    x = concatenator([state_h, state_c, encoder_activations])
+
+    x = densor1(x)
+    x = densor2(x)
+    alphas = softmax(x)
+
+    context = dotter([alphas, encoder_activations])
+
+    return tf.keras.Model([encoder_activations] + encoder_states, context)

@@ -317,39 +317,10 @@ class BatchAdapter:
     def adapt_batch(self, batch):
         raise NotImplementedError
 
-
-class CTCAdapter(BatchAdapter):
-    def adapt_batch(self, batch):
-        image_arrays, labellings = batch
-
-        current_batch_size = len(labellings)
-
-        padded_arrays = self._pad_image_arrays(image_arrays)
-
-        X = np.array(padded_arrays).reshape(current_batch_size, *padded_arrays[0].shape)
-
-        padded_labellings = self._pad_labellings(labellings)
-
-        labels = np.array(padded_labellings, dtype=np.int32).reshape(current_batch_size, -1)
-
-        lstm_input_shapes = [compute_output_shape(a.shape) for a in image_arrays]
-        widths = [width for width, channels in lstm_input_shapes]
-        input_lengths = np.array(widths, dtype=np.int32).reshape(current_batch_size, 1)
-
-        label_lengths = np.array([len(labelling) for labelling in labellings],
-                                 dtype=np.int32).reshape(current_batch_size, 1)
-
-        return [X, labels, input_lengths, label_lengths], labels
-
-    def _pad_image_arrays(self, image_arrays):
-        max_width = max([a.shape[1] for a in image_arrays])
-        return [self._pad_array_width(a, max_width) for a in image_arrays]
-
-    def _pad_labellings(self, labellings, padding_code=0):
-        max_length = max([len(labels) for labels in labellings])
+    def _pad_labellings(self, labellings, target_length, padding_code=0):
         padded_labellings = []
         for labels in labellings:
-            padding_size = max_length - len(labels)
+            padding_size = target_length - len(labels)
             assert padding_code >= 0
             new_labelling = labels + [padding_code] * padding_size
             assert len(new_labelling) > 0
@@ -368,3 +339,62 @@ class CTCAdapter(BatchAdapter):
         vertical_padding = (0, 0)
         depth_padding = (0, 0)
         return scipy.pad(a, pad_width=[vertical_padding, horizontal_padding, depth_padding])
+
+    def _pad_image_arrays(self, image_arrays, target_width):
+        return [self._pad_array_width(a, target_width) for a in image_arrays]
+
+
+class CTCAdapter(BatchAdapter):
+    def adapt_batch(self, batch):
+        image_arrays, labellings = batch
+
+        current_batch_size = len(labellings)
+
+        target_width = max([a.shape[1] for a in image_arrays])
+        padded_arrays = self._pad_image_arrays(image_arrays, target_width)
+
+        X = np.array(padded_arrays).reshape(current_batch_size, *padded_arrays[0].shape)
+
+        target_length = max([len(labels) for labels in labellings])
+        padded_labellings = self._pad_labellings(labellings, target_length)
+
+        labels = np.array(padded_labellings, dtype=np.int32).reshape(current_batch_size, -1)
+
+        lstm_input_shapes = [compute_output_shape(a.shape) for a in image_arrays]
+        widths = [width for width, channels in lstm_input_shapes]
+        input_lengths = np.array(widths, dtype=np.int32).reshape(current_batch_size, 1)
+
+        label_lengths = np.array([len(labelling) for labelling in labellings],
+                                 dtype=np.int32).reshape(current_batch_size, 1)
+
+        return [X, labels, input_lengths, label_lengths], labels
+
+
+class ConvolutionalEncoderDecoderAdapter(BatchAdapter):
+    def __init__(self, char_table, max_image_width, max_text_length):
+        self._sos = char_table.sos
+        self._eos = char_table.eos
+        self._num_classes = char_table.size
+
+        self._max_image_width = max_image_width
+        self._max_text_length = max_text_length
+
+    def adapt_batch(self, batch):
+        image_arrays, labellings = batch
+
+        padded_arrays = self._pad_image_arrays(image_arrays, self._max_image_width)
+        padded_labellings = self._pad_labellings(labellings, self._max_text_length,
+                                                 padding_code=self._eos)
+
+        batch_size = len(labellings)
+
+        sos_column = np.ones((batch_size, 1)) * self._sos
+        eos_column = np.ones((batch_size, 1)) * self._eos
+
+        decoder_x = np.concatenate([sos_column, padded_labellings], axis=1)[:, :-1]
+        decoder_y = np.concatenate([padded_labellings, eos_column], axis=1)[:, 1:]
+
+        decoder_x = tf.keras.utils.to_categorical(decoder_x, num_classes=self._num_classes)
+        decoder_y = tf.keras.utils.to_categorical(decoder_y, num_classes=self._num_classes)
+
+        return [padded_arrays, decoder_x], decoder_y
