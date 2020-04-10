@@ -153,12 +153,93 @@ def beam_search_decode(inputs, input_lengths):
 
 
 class ConvolutionalEncoderDecoderWithAttention:
+    class InferenceModel:
+        def __init__(self, encoder, decoder, attention, num_output_tokens):
+            self._encoder = encoder
+            self._decoder = decoder
+            self._attention = attention
+            self._num_output_tokens = num_output_tokens
+
+        def predict(self, image_array, char_table):
+            sos = char_table.sos
+            eos = char_table.eos
+
+            encoder_activations, state_h, state_c = self._encoder(image_array)
+            concatenator = tf.keras.layers.Concatenate(axis=1)
+
+            import numpy as np
+            y_prev = np.zeros((1, self._num_output_tokens))
+            y_prev[0, sos] = 1.0
+
+            s = ''
+            while True:
+                inputs = [encoder_activations, state_h, state_c]
+                context = self._attention(inputs)
+
+                z = concatenator([context, y_prev])
+
+                y_hat, state_h, state_c = self._decoder([z, state_h, state_c])
+                pmf = y_hat[0]
+
+                code = np.argmax(pmf)
+
+                y_prev = np.zeros((1, self._num_output_tokens))
+                y_prev[0, code] = 1.0
+
+                if code == eos or len(s) > 20:
+                    break
+
+                if code == sos:
+                    continue
+
+                ch = char_table.get_character(code)
+
+                s += ch
+
+            return s
+
     def __init__(self, height, units, output_size, max_image_width, max_text_length):
-        self.training_model = conv_encoder_decoder_model_with_attention(height, units, output_size, max_image_width, max_text_length)
+        channels = 1
+        Tx = max_text_length
+        context_size = units
+        decoder_input_size = context_size + output_size
+
+        encoder_inputs = tf.keras.layers.Input(shape=(height, max_image_width, channels))
+        decoder_inputs = tf.keras.layers.Input(shape=(Tx, output_size))
+        concatenator = tf.keras.layers.Concatenate(axis=1)
+
+        encoder = make_encoder_model(height, channels, units)
+        decoder = make_step_decoder_model(units, decoder_input_size, output_size)
+
+        num_activations, _ = compute_output_shape((height, max_image_width, 1))
+        attention = make_attention_model(num_activations=num_activations, encoder_num_units=units)
+
+        x = encoder_inputs
+        encoder_activations, state_h, state_c = encoder(x)
+
+        outputs = []
+        for t in range(Tx):
+            print('STEP', t)
+            inputs = [encoder_activations, state_h, state_c]
+            context = attention(inputs)
+            y = tf.keras.layers.Lambda(lambda x: x[:, t, :])(decoder_inputs)
+
+            z = concatenator([context, y])
+
+            y_hat, state_h, state_c = decoder([z, state_h, state_c])
+            outputs.append(y_hat)
+
+        self.training_model = tf.keras.Model([encoder_inputs, decoder_inputs], outputs)
+
+        self._encoder = encoder
+        self._decoder = decoder
+        self._attention = attention
+        self._num_output_tokens = output_size
 
     @property
     def inference_model(self):
-        return None
+        model = self.InferenceModel(self._encoder, self._decoder, self._attention, self._num_output_tokens)
+        return model
 
 
 def conv_encoder_decoder_model_with_attention(height, units=128, output_size=128, max_image_width=2000, max_text_length=200):
@@ -192,12 +273,6 @@ def conv_encoder_decoder_model_with_attention(height, units=128, output_size=128
         y_hat, state_h, state_c = decoder([z, state_h, state_c])
         outputs.append(y_hat)
 
-    #concatenator = tf.keras.layers.Concatenate(axis=1)
-    #reshapor = tf.keras.layers.Reshape(target_shape=(Tx, output_size))
-
-    #output_tensor = concatenator(outputs)
-    #output_tensor = reshapor(output_tensor)
-    # todo: fix error
     return tf.keras.Model([encoder_inputs, decoder_inputs], outputs)
 
 

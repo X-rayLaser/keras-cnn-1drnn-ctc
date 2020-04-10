@@ -1,7 +1,7 @@
 import numpy as np
 import tensorflow as tf
 
-from keras_htr.generators import binarize
+from keras_htr import binarize
 from scipy import ndimage
 import networkx as nx
 import subprocess

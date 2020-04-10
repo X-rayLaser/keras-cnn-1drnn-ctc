@@ -6,7 +6,7 @@ from keras_htr.models import decode_greedy, beam_search_decode
 from keras_htr.edit_distance import compute_cer
 
 from keras_htr.models import compute_output_shape
-from keras_htr.generators import prepare_x, binarize
+from keras_htr.preprocessing import prepare_x, binarize
 
 
 def get_meta_info(path='lines_dataset/train'):

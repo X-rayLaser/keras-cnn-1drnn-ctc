@@ -12,3 +12,4 @@ dist/
 build/
 keras_htr.egg-info/
 temp_ds/
+*.zip

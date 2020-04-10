@@ -3,11 +3,13 @@ import numpy as np
 import shutil
 import json
 import tensorflow as tf
+from .preprocessing import BasePreprocessor
 
 
 def create_lines_dataset(data_source,
                          destination_folder='lines_dataset',
-                         size=10000, train_fraction=0.6, val_fraction=0.2):
+                         size=10000, train_fraction=0.6, val_fraction=0.2,
+                         preprocessor=None):
     dest_to_copier = {}
     dest_texts = {}
 
