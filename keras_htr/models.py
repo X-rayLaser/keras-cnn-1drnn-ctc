@@ -153,7 +153,7 @@ def beam_search_decode(inputs, input_lengths):
 
 
 class ConvolutionalEncoderDecoderWithAttention:
-    def __init__(self, height, units=128, output_size=128, max_image_width=2000, max_text_length=200):
+    def __init__(self, height, units, output_size, max_image_width, max_text_length):
         self.training_model = conv_encoder_decoder_model_with_attention(height, units, output_size, max_image_width, max_text_length)
 
     @property
@@ -164,15 +164,18 @@ class ConvolutionalEncoderDecoderWithAttention:
 def conv_encoder_decoder_model_with_attention(height, units=128, output_size=128, max_image_width=2000, max_text_length=200):
     channels = 1
     Tx = max_text_length
+    context_size = units
+    decoder_input_size = context_size + output_size
+
     encoder_inputs = tf.keras.layers.Input(shape=(height, max_image_width, channels))
     decoder_inputs = tf.keras.layers.Input(shape=(Tx, output_size))
     concatenator = tf.keras.layers.Concatenate(axis=1)
 
     encoder = make_encoder_model(height, channels, units)
-    decoder = make_step_decoder_model(units, output_size)
+    decoder = make_step_decoder_model(units, decoder_input_size, output_size)
 
     num_activations, _ = compute_output_shape((height, max_image_width, 1))
-    attention = make_attention_model(num_activations=num_activations, max_text_length=Tx, encoder_num_units=units)
+    attention = make_attention_model(num_activations=num_activations, encoder_num_units=units)
 
     x = encoder_inputs
     encoder_activations, state_h, state_c = encoder(x)
@@ -189,13 +192,13 @@ def conv_encoder_decoder_model_with_attention(height, units=128, output_size=128
         y_hat, state_h, state_c = decoder([z, state_h, state_c])
         outputs.append(y_hat)
 
-    concatenator = tf.keras.layers.Concatenate(axis=0)
-    reshapor = tf.keras.layers.Reshape(target_shape=(Tx, output_size))
+    #concatenator = tf.keras.layers.Concatenate(axis=1)
+    #reshapor = tf.keras.layers.Reshape(target_shape=(Tx, output_size))
 
-    output_tensor = concatenator(outputs)
-    output_tensor = reshapor(output_tensor)
+    #output_tensor = concatenator(outputs)
+    #output_tensor = reshapor(output_tensor)
     # todo: fix error
-    return tf.keras.Model([encoder_inputs, decoder_inputs], output_tensor)
+    return tf.keras.Model([encoder_inputs, decoder_inputs], outputs)
 
 
 def make_encoder_model(height, channels, units):
@@ -209,13 +212,14 @@ def make_encoder_model(height, channels, units):
     return tf.keras.Model(encoder_inputs, [encoder_outputs, state_h, state_c])
 
 
-def make_step_decoder_model(units=128, output_size=128):
+def make_step_decoder_model(units, input_size, output_size):
     decoder_lstm = tf.keras.layers.LSTM(units, return_sequences=True, return_state=True)
-    decoder_inputs = tf.keras.layers.Input(shape=(1, output_size))
+    decoder_inputs = tf.keras.layers.Input(shape=(1, input_size))
+
     decoder_states = [tf.keras.layers.Input(shape=(units,)),
                       tf.keras.layers.Input(shape=(units,))]
 
-    reshapor = tf.keras.layers.Reshape(target_shape=(1, output_size))
+    reshapor = tf.keras.layers.Reshape(target_shape=(1, input_size))
 
     flattener = tf.keras.layers.Reshape(target_shape=(output_size,))
 
@@ -232,7 +236,7 @@ def make_step_decoder_model(units=128, output_size=128):
     return tf.keras.Model([decoder_inputs] + decoder_states, [y_hat, state_h, state_c])
 
 
-def make_attention_model(num_activations, max_text_length, encoder_num_units):
+def make_attention_model(num_activations, encoder_num_units):
     repeater = tf.keras.layers.RepeatVector(num_activations)
     concatenator = tf.keras.layers.Concatenate(axis=2)
 

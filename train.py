@@ -132,6 +132,24 @@ def fit_ctc_model(args):
               callbacks=callbacks)
 
 
+def compute_ds_params(ds_path, image_height, augment):
+    from keras_htr.generators import BasePreprocessor, CompiledDataset
+
+    max_image_width = 0
+    max_text_length = 0
+    ds = CompiledDataset(ds_path)
+    preprocessor = BasePreprocessor(ds, image_height, augment)
+    for image_path, text in ds:
+        a = preprocessor.process(image_path)
+        h, w, _ = a.shape
+        max_image_width = max(max_image_width, w)
+
+        text_len = len(text)
+        max_text_length = max(max_text_length, text_len)
+
+    return max_image_width, max_text_length
+
+
 def fit_attention_model(args):
     dataset_path = args.ds
     model_save_path = args.model_path
@@ -148,19 +166,22 @@ def fit_attention_model(args):
     val_path = os.path.join(dataset_path, 'validation')
 
     meta_info = get_meta_info(path=train_path)
-    num_examples = meta_info['num_examples']
     image_height = meta_info['average_height']
-    max_image_width = meta_info['max_width']
-    max_text_length = meta_info['max_text_length']
 
     char_table_path = os.path.join(dataset_path, 'character_table.txt')
 
     char_table = CharTable(char_table_path)
 
+    max_image_width_train, max_text_length_train = compute_ds_params(train_path, image_height, augment=augment)
+    max_image_width_val, max_text_length_val = compute_ds_params(val_path, image_height, augment=augment)
+    max_image_width = max(max_image_width_train, max_image_width_val)
+    max_text_length = max(max_text_length_train, max_text_length_val)
+
     adapter = ConvolutionalEncoderDecoderAdapter(char_table, max_image_width, max_text_length)
 
     train_generator = LinesGenerator(train_path, char_table, image_height, batch_size,
                                      augment=augment, batch_adapter=adapter)
+
     val_generator = LinesGenerator(val_path, char_table, image_height, batch_size,
                                    batch_adapter=adapter)
 
@@ -193,8 +214,13 @@ if __name__ == '__main__':
     parser.add_argument('--epochs', type=int, default=100)
     parser.add_argument('--debug_interval', type=int, default=10)
     parser.add_argument('--augment', type=bool, default=False)
+    parser.add_argument('--arch', type=str, default='cnn-1drnn-ctc')
 
     args = parser.parse_args()
 
-    fit_ctc_model(args)
-    #fit_attention_model(args)
+    if args.arch == 'cnn-1drnn-ctc':
+        fit_ctc_model(args)
+    elif args.arch == 'encoder-decoder-attention':
+        fit_attention_model(args)
+    else:
+        raise Exception('{} model architecture is unrecognized'.format(args.arch))

@@ -199,28 +199,9 @@ def get_dictionary():
     return dictionary
 
 
-class LinesGenerator(BaseGenerator):
-    def __init__(self, dataset_root, char_table, image_height, batch_size=4, augment=False, batch_adapter=None):
+class CompiledDataset:
+    def __init__(self, dataset_root):
         self._root = dataset_root
-        self._char_table = char_table
-        self._batch_size = batch_size
-        self._augment = augment
-
-        if batch_adapter is None:
-            self._adapter = CTCAdapter()
-        else:
-            self._adapter = batch_adapter
-
-        meta_path = os.path.join(dataset_root, 'meta.json')
-        with open(meta_path) as f:
-            s = f.read()
-
-        meta_info = json.loads(s)
-        self._num_examples = meta_info['num_examples']
-        self._image_height = image_height
-
-        self._indices = list(range(self._num_examples))
-
         self._lines = []
 
         lines_path = os.path.join(dataset_root, 'lines.txt')
@@ -228,15 +209,62 @@ class LinesGenerator(BaseGenerator):
             for row in f.readlines():
                 self._lines.append(row.rstrip('\n'))
 
+        meta_path = os.path.join(dataset_root, 'meta.json')
+        with open(meta_path) as f:
+            s = f.read()
+        meta_info = json.loads(s)
+
+        self.__dict__.update(meta_info)
+
+        self._num_examples = meta_info['num_examples']
+
     @property
     def size(self):
         return self._num_examples
+
+    def __iter__(self):
+        for i in range(self._num_examples):
+            yield self.get_example(i)
+
+    def get_example(self, line_index):
+        text = self._lines[line_index]
+        image_path = os.path.join(self._root, str(line_index) + '.png')
+        return image_path, text
+
+
+class LinesGenerator(BaseGenerator):
+    def __init__(self, dataset_root, char_table, image_height, batch_size=4, augment=False, batch_adapter=None):
+        self._root = dataset_root
+        self._char_table = char_table
+        self._batch_size = batch_size
+        self._augment = augment
+
+        self._preprocessor = BasePreprocessor(dataset_root, image_height, augment)
+        self._preprocessor.fit()
+
+        if batch_adapter is None:
+            self._adapter = CTCAdapter()
+        else:
+            self._adapter = batch_adapter
+
+        self._ds = CompiledDataset(dataset_root)
+
+        self._image_height = image_height
+
+        self._indices = list(range(self._ds.size))
+
+    @property
+    def size(self):
+        return self._ds.size
 
     @property
     def image_height(self):
         return self._image_height
 
     def __iter__(self):
+        batches_gen = self.get_batches()
+        self._adapter.fit(batches_gen)
+
         while True:
             for batch in self.get_batches():
                 yield self._adapter.adapt_batch(batch)
@@ -263,9 +291,8 @@ class LinesGenerator(BaseGenerator):
         return [self._char_table.get_label(ch) for ch in text]
 
     def get_example(self, line_index):
-        text = self._lines[line_index]
-        image_path = os.path.join(self._root, str(line_index) + '.png')
-        x = prepare_x(image_path, self._image_height, transform=self._augment)
+        image_path, text = self._ds.get_example(line_index)
+        x = self._preprocessor.process(image_path)
         y = self.text_to_class_labels(text)
         return x, y
 
@@ -314,6 +341,9 @@ def rgb_to_grayscale(a):
 
 
 class BatchAdapter:
+    def fit(self, batches):
+        pass
+
     def adapt_batch(self, batch):
         raise NotImplementedError
 
@@ -379,6 +409,9 @@ class ConvolutionalEncoderDecoderAdapter(BatchAdapter):
         self._max_image_width = max_image_width
         self._max_text_length = max_text_length
 
+    def fit(self, batches):
+        pass
+
     def adapt_batch(self, batch):
         image_arrays, labellings = batch
 
@@ -387,6 +420,7 @@ class ConvolutionalEncoderDecoderAdapter(BatchAdapter):
                                                  padding_code=self._eos)
 
         batch_size = len(labellings)
+        x = np.array(padded_arrays).reshape((batch_size, -1, self._max_image_width, 1))
 
         sos_column = np.ones((batch_size, 1)) * self._sos
         eos_column = np.ones((batch_size, 1)) * self._eos
@@ -397,4 +431,21 @@ class ConvolutionalEncoderDecoderAdapter(BatchAdapter):
         decoder_x = tf.keras.utils.to_categorical(decoder_x, num_classes=self._num_classes)
         decoder_y = tf.keras.utils.to_categorical(decoder_y, num_classes=self._num_classes)
 
-        return [padded_arrays, decoder_x], decoder_y
+        decoder_y = list(np.swapaxes(decoder_y, 0, 1))
+
+        return [x, decoder_x], decoder_y
+
+
+class BasePreprocessor:
+    def __init__(self, dataset_root, image_height, augment):
+        self._image_height = image_height
+        self._augment = augment
+
+    def fit(self):
+        pass
+
+    def process(self, image_path):
+        return prepare_x(image_path, self._image_height, transform=self._augment)
+
+
+# todo: Create preprocessor class
