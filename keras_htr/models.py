@@ -23,8 +23,6 @@ def create_conv_rnn_model(num_classes):
 
 def compute_output_shape(input_shape):
     height, width, channels = input_shape
-
-    #new_width = ((width // 2 - 4) // 2 - 2) // 2
     new_width = width // 2 // 2 // 2
     return new_width, 80
 
@@ -342,3 +340,8 @@ def make_attention_model(num_activations, encoder_num_units):
     context = reshapor(context)
 
     return tf.keras.Model([encoder_activations] + encoder_states, context)
+
+
+# todo: way to save/load attention model
+# todo: make encoder LSTM bidirectional
+# todo: precise implementation as it is covered in paper

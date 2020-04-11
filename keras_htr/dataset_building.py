@@ -3,13 +3,69 @@ import numpy as np
 import shutil
 import json
 import tensorflow as tf
-from .preprocessing import BasePreprocessor
+from .preprocessing import BasePreprocessor, prepare_x, get_image_array, binarize
+from .generators import CompiledDataset
+
+
+class Cnn1drnnCtcPreprocessor:
+    def __init__(self):
+        self._average_height = 50
+
+    def fit(self, train_path, val_path, test_path):
+        train_ds = CompiledDataset(train_path)
+        self._average_height = train_ds.average_height
+
+    def process(self, image_path):
+        image_array = get_image_array(image_path, self._average_height)
+        a = binarize(image_array)
+        return tf.keras.preprocessing.image.array_to_img(a)
 
 
 def create_lines_dataset(data_source,
                          destination_folder='lines_dataset',
                          size=10000, train_fraction=0.6, val_fraction=0.2,
                          preprocessor=None):
+    temp_folder = os.path.join(destination_folder, 'extracted_lines')
+
+    extract_lines(data_source, temp_folder, size, train_fraction, val_fraction)
+
+    train_path = os.path.join(temp_folder, 'train')
+    val_path = os.path.join(temp_folder, 'validation')
+    test_path = os.path.join(temp_folder, 'test')
+
+    preprocessor = Cnn1drnnCtcPreprocessor()
+    preprocessor.fit(train_path, val_path, test_path)
+
+    split_folders = ['train', 'validation', 'test']
+
+    for folder in split_folders:
+        src_dir = os.path.join(temp_folder, folder)
+        dest_dir = os.path.join(destination_folder, folder)
+        preprocess_images(src_dir, dest_dir, preprocessor)
+
+    char_table_file_name = 'character_table.txt'
+    char_table_src = os.path.join(temp_folder, char_table_file_name)
+    char_table_dest = os.path.join(destination_folder, char_table_file_name)
+
+    shutil.copyfile(char_table_src, char_table_dest)
+
+
+def preprocess_images(source, destination, preprocessor):
+    shutil.copytree(source, destination)
+
+    ds = CompiledDataset(destination)
+    for image_path, _ in ds:
+        img = preprocessor.process(image_path)
+        img.save(image_path)
+
+    meta_path = os.path.join(destination, 'meta.json')
+    os.remove(meta_path)
+    create_meta_information(destination)
+
+
+def extract_lines(data_source,
+                  destination_folder='lines_dataset',
+                  size=10000, train_fraction=0.6, val_fraction=0.2):
     dest_to_copier = {}
     dest_texts = {}
 
