@@ -1,9 +1,10 @@
 import os
 import logging
 import math
-from keras_htr import get_meta_info, CERevaluator
+from keras_htr import get_meta_info, CERevaluator, decode_greedy
 from keras_htr.generators import LinesGenerator, ConvolutionalEncoderDecoderAdapter
-from keras_htr.models import CtcModel, decode_greedy, ConvolutionalEncoderDecoderWithAttention
+from keras_htr.models.encoder_decoder import ConvolutionalEncoderDecoderWithAttention
+from keras_htr.models.cnn_1drnn_ctc import CtcModel
 import tensorflow as tf
 from tensorflow.keras.callbacks import Callback
 from keras_htr.char_table import CharTable
@@ -35,11 +36,11 @@ class DebugCallback(Callback):
                 break
 
             (X, labels, input_lengths, label_lengths), labels = example
-
             expected = ''.join([self._char_table.get_character(code) for code in labels[0]])
+            labels = self._ctc_model_factory.predict(X, input_lengths=input_lengths)
 
-            ypred = self._ctc_model_factory.inference_model.predict(X)
-            labels = decode_greedy(ypred, input_lengths)
+            #ypred = self._ctc_model_factory.inference_model.predict(X)
+            #labels = decode_greedy(ypred, input_lengths)
             predicted = ''.join([self._char_table.get_character(code) for code in labels[0]])
 
             print(expected, '->', predicted)
@@ -73,7 +74,7 @@ class CtcModelCheckpoint(Callback):
         self._save_path = save_path
 
     def on_epoch_end(self, epoch, logs=None):
-        self._model.inference_model.save(self._save_path)
+        self._model.save(self._save_path)
 
 
 class DebugAttentionModelCallback(Callback):
@@ -138,53 +139,24 @@ def fit_ctc_model(args):
     train_generator = LinesGenerator(train_path, char_table, batch_size, augment=augment)
     val_generator = LinesGenerator(val_path, char_table, batch_size)
 
-    ctc_model_factory = CtcModel(units=units, num_labels=char_table.size,
-                                 height=image_height, channels=1)
-    model = ctc_model_factory.training_model
-    loss = ctc_model_factory.get_loss()
+    model = CtcModel(units=units, num_labels=char_table.size,
+                     height=image_height, channels=1)
 
-    model.compile(optimizer=tf.keras.optimizers.Adam(lr=lr), loss=loss, metrics=[])
-    train_gen = train_generator.__iter__()
-    val_gen = val_generator.__iter__()
-
-    steps_per_epoch = math.ceil(train_generator.size / batch_size)
-    val_steps = math.ceil(val_generator.size / batch_size)
-
-    checkpoint = CtcModelCheckpoint(ctc_model_factory, model_save_path)
+    checkpoint = CtcModelCheckpoint(model, model_save_path)
 
     train_debug_generator = LinesGenerator(train_path, char_table, batch_size=1)
     val_debug_generator = LinesGenerator(val_path, char_table, batch_size=1)
     output_debugger = DebugCallback(char_table, train_debug_generator, val_debug_generator,
-                                    ctc_model_factory, interval=debug_interval)
+                                    model, interval=debug_interval)
 
     cer_generator = LinesGenerator(train_path, char_table, batch_size=1)
     cer_val_generator = LinesGenerator(val_path, char_table, batch_size=1)
     CER_metric = CerCallback(char_table, cer_generator, cer_val_generator,
-                             ctc_model_factory, steps=16, interval=debug_interval)
+                             model, steps=16, interval=debug_interval)
 
     callbacks = [checkpoint, output_debugger, CER_metric]
-    model.fit(train_gen, epochs=epochs, steps_per_epoch=steps_per_epoch,
-              validation_data=val_gen, validation_steps=val_steps,
-              callbacks=callbacks)
 
-
-def compute_ds_params(ds_path, image_height, augment):
-    from keras_htr.generators import CompiledDataset
-    from keras_htr.preprocessing import BasePreprocessor
-
-    max_image_width = 0
-    max_text_length = 0
-    ds = CompiledDataset(ds_path)
-    preprocessor = BasePreprocessor(ds, image_height, augment)
-    for image_path, text in ds:
-        a = preprocessor.process(image_path)
-        h, w, _ = a.shape
-        max_image_width = max(max_image_width, w)
-
-        text_len = len(text)
-        max_text_length = max(max_text_length, text_len)
-
-    return max_image_width, max_text_length
+    model.fit(train_generator, val_generator, epochs=epochs, callbacks=callbacks)
 
 
 def fit_attention_model(args):
@@ -201,6 +173,7 @@ def fit_attention_model(args):
 
     train_path = os.path.join(dataset_path, 'train')
     val_path = os.path.join(dataset_path, 'validation')
+    test_path = os.path.join(dataset_path, 'test')
 
     meta_info = get_meta_info(path=train_path)
     image_height = meta_info['average_height']
@@ -209,20 +182,19 @@ def fit_attention_model(args):
 
     char_table = CharTable(char_table_path)
 
-    max_image_width_train, max_text_length_train = compute_ds_params(train_path, image_height, augment=augment)
-    max_image_width_val, max_text_length_val = compute_ds_params(val_path, image_height, augment=augment)
-    max_image_width = max(max_image_width_train, max_image_width_val)
-    max_text_length = max(max_text_length_train, max_text_length_val)
+    max_image_width = meta_info['max_width']
+    max_text_length = max(get_meta_info(path=train_path)['max_text_length'], get_meta_info(val_path)['max_text_length'],
+                          get_meta_info(test_path)['max_text_length'])
 
     adapter = ConvolutionalEncoderDecoderAdapter(char_table, max_image_width, max_text_length)
 
-    train_generator = LinesGenerator(train_path, char_table, image_height, batch_size,
+    train_generator = LinesGenerator(train_path, char_table, batch_size,
                                      augment=augment, batch_adapter=adapter)
 
-    val_generator = LinesGenerator(val_path, char_table, image_height, batch_size,
+    val_generator = LinesGenerator(val_path, char_table, batch_size,
                                    batch_adapter=adapter)
 
-    model_factory = ConvolutionalEncoderDecoderWithAttention(height=train_generator.image_height,
+    model_factory = ConvolutionalEncoderDecoderWithAttention(height=image_height,
                                                              units=units, output_size=char_table.size,
                                                              max_image_width=max_image_width,
                                                              max_text_length=max_text_length)
@@ -235,9 +207,9 @@ def fit_attention_model(args):
     steps_per_epoch = math.ceil(train_generator.size / batch_size)
     val_steps = math.ceil(val_generator.size / batch_size)
 
-    train_debug_generator = LinesGenerator(train_path, char_table, image_height, batch_size=1,
+    train_debug_generator = LinesGenerator(train_path, char_table, batch_size=1,
                                            augment=augment, batch_adapter=adapter)
-    val_debug_generator = LinesGenerator(val_path, char_table, image_height, batch_size=1,
+    val_debug_generator = LinesGenerator(val_path, char_table, batch_size=1,
                                          batch_adapter=adapter)
     output_debugger = DebugAttentionModelCallback(char_table, train_debug_generator, val_debug_generator,
                                                   model_factory, interval=debug_interval)

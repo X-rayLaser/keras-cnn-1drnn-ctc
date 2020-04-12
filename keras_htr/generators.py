@@ -4,7 +4,7 @@ import tensorflow as tf
 import numpy as np
 import json
 import scipy
-from keras_htr.models import compute_output_shape
+from keras_htr.models.base import compute_output_shape
 
 
 class BaseGenerator:
@@ -70,6 +70,10 @@ class LinesGenerator(BaseGenerator):
         self._ds = CompiledDataset(dataset_root)
 
         self._indices = list(range(self._ds.size))
+
+    @property
+    def batch_size(self):
+        return self._batch_size
 
     @property
     def size(self):

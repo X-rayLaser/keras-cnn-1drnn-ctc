@@ -2,10 +2,10 @@ import os
 import math
 import numpy as np
 import tensorflow as tf
-from keras_htr.models import decode_greedy, beam_search_decode
+from keras_htr.models.cnn_1drnn_ctc import decode_greedy, beam_search_decode
 from keras_htr.edit_distance import compute_cer
 
-from keras_htr.models import compute_output_shape
+from keras_htr.models.base import compute_output_shape
 
 
 def get_meta_info(path='lines_dataset/train'):
