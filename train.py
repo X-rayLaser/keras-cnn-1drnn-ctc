@@ -63,7 +63,7 @@ class CerCallback(Callback):
             print('train CER {}; val CER {}'.format(train_cer, val_cer))
 
     def compute_cer(self, gen):
-        cer = CERevaluator(self._ctc_model_factory.inference_model, gen, self._steps)
+        cer = CERevaluator(self._ctc_model_factory._get_inference_model(), gen, self._steps)
         return cer.evaluate()
 
 
