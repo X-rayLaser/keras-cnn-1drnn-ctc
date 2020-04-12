@@ -2,6 +2,9 @@ import numpy as np
 import scipy
 import tensorflow as tf
 
+from keras_htr.generators import CompiledDataset
+import scipy
+
 
 def get_zero_padded_array(image_path, target_height):
     img = tf.keras.preprocessing.image.load_img(image_path)
@@ -118,3 +121,64 @@ class BasePreprocessor:
 
     def process(self, image_path):
         return prepare_x(image_path, self._image_height, transform=self._augment)
+
+
+class Cnn1drnnCtcPreprocessor:
+    def __init__(self):
+        self._average_height = 50
+
+    def fit(self, train_path, val_path, test_path):
+        train_ds = CompiledDataset(train_path)
+        self._average_height = train_ds.average_height
+
+    def process(self, image_path):
+        image_array = get_image_array(image_path, self._average_height)
+        a = binarize(image_array)
+        return tf.keras.preprocessing.image.array_to_img(a)
+
+
+class EncoderDecoderPreprocessor:
+    def __init__(self):
+        self._average_height = 50
+        self.max_image_width = 0
+        self.max_text_length = 0
+
+    def fit(self, train_path, val_path, test_path):
+        max_image_width_train, max_text_length_train = self.compute_ds_params(train_path)
+        max_image_width_val, max_text_length_val = self.compute_ds_params(val_path)
+        max_image_width_test, max_text_length_test = self.compute_ds_params(test_path)
+
+        self.max_image_width = max(max_image_width_train, max_image_width_val, max_image_width_test)
+        self.max_text_length = max(max_text_length_train, max_text_length_val, max_text_length_test)
+
+    def compute_ds_params(self, ds_path):
+        ds = CompiledDataset(ds_path)
+
+        max_image_width = 0
+        max_text_length = 0
+
+        for image_path, text in ds:
+            image_array = get_image_array(image_path, self._average_height)
+            h, w, _ = image_array.shape
+            max_image_width = max(max_image_width, w)
+            max_text_length = max(max_text_length, len(text))
+
+        return max_image_width, max_text_length
+
+    def process(self, image_path):
+        image_array = get_image_array(image_path, self._average_height)
+        a = binarize(image_array)
+        a = self._pad_array_width(a, self.max_image_width)
+        return tf.keras.preprocessing.image.array_to_img(a)
+
+    def _pad_array_width(self, a, target_width):
+        width = a.shape[1]
+
+        right_padding = target_width - width
+
+        assert right_padding >= 0
+
+        horizontal_padding = (0, right_padding)
+        vertical_padding = (0, 0)
+        depth_padding = (0, 0)
+        return scipy.pad(a, pad_width=[vertical_padding, horizontal_padding, depth_padding])

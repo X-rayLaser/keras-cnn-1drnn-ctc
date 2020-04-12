@@ -135,11 +135,11 @@ def fit_ctc_model(args):
 
     char_table = CharTable(char_table_path)
 
-    train_generator = LinesGenerator(train_path, char_table, image_height, batch_size, augment=augment)
-    val_generator = LinesGenerator(val_path, char_table, image_height, batch_size)
+    train_generator = LinesGenerator(train_path, char_table, batch_size, augment=augment)
+    val_generator = LinesGenerator(val_path, char_table, batch_size)
 
     ctc_model_factory = CtcModel(units=units, num_labels=char_table.size,
-                                 height=train_generator.image_height, channels=1)
+                                 height=image_height, channels=1)
     model = ctc_model_factory.training_model
     loss = ctc_model_factory.get_loss()
 
@@ -152,13 +152,13 @@ def fit_ctc_model(args):
 
     checkpoint = CtcModelCheckpoint(ctc_model_factory, model_save_path)
 
-    train_debug_generator = LinesGenerator(train_path, char_table, image_height, batch_size=1)
-    val_debug_generator = LinesGenerator(val_path, char_table, image_height, batch_size=1)
+    train_debug_generator = LinesGenerator(train_path, char_table, batch_size=1)
+    val_debug_generator = LinesGenerator(val_path, char_table, batch_size=1)
     output_debugger = DebugCallback(char_table, train_debug_generator, val_debug_generator,
                                     ctc_model_factory, interval=debug_interval)
 
-    cer_generator = LinesGenerator(train_path, char_table, image_height, batch_size=1)
-    cer_val_generator = LinesGenerator(val_path, char_table, image_height, batch_size=1)
+    cer_generator = LinesGenerator(train_path, char_table, batch_size=1)
+    cer_val_generator = LinesGenerator(val_path, char_table, batch_size=1)
     CER_metric = CerCallback(char_table, cer_generator, cer_val_generator,
                              ctc_model_factory, steps=16, interval=debug_interval)
 

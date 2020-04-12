@@ -31,4 +31,10 @@ class CharTable:
         return self._char_to_label[ch]
 
     def get_character(self, class_label):
+        if class_label == self.sos:
+            return ''
+
+        if class_label == self.eos:
+            return '\n'
+
         return self._label_to_char[class_label]

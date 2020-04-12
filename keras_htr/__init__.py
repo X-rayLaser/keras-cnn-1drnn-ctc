@@ -6,7 +6,6 @@ from keras_htr.models import decode_greedy, beam_search_decode
 from keras_htr.edit_distance import compute_cer
 
 from keras_htr.models import compute_output_shape
-from keras_htr.preprocessing import prepare_x, binarize
 
 
 def get_meta_info(path='lines_dataset/train'):
@@ -135,6 +134,7 @@ def line_segmentation(a, threshold=5):
 
 
 def recognize_line(model, image_path, image_height, char_table):
+    from keras_htr.preprocessing import prepare_x
     x = prepare_x(image_path, image_height)
     lstm_input_shape = compute_output_shape(x.shape)
     width, channels = lstm_input_shape
@@ -149,6 +149,8 @@ def recognize_line(model, image_path, image_height, char_table):
 
 
 def recognize_document(model, image_path, image_height, char_table):
+    from keras_htr.preprocessing import binarize
+
     img = tf.keras.preprocessing.image.load_img(image_path)
     a = tf.keras.preprocessing.image.img_to_array(img)
     a = binarize(a)

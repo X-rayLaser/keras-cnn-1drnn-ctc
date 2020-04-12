@@ -27,7 +27,7 @@ if __name__ == '__main__':
     model = tf.keras.models.load_model(model_path, custom_objects={'tf': tf})
     batch_size, image_height, image_width, channels = model.input_shape
 
-    lines_generator = LinesGenerator(dataset_path, char_table, image_height, batch_size=1)
+    lines_generator = LinesGenerator(dataset_path, char_table, batch_size=1)
 
     cer = CERevaluator(model, lines_generator, steps=None)
 

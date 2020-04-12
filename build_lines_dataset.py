@@ -9,10 +9,9 @@ def get_class(fully_qualified_name):
     parts = fully_qualified_name.split('.')
     module_path = '.'.join(parts[:-1])
 
-    source_module = import_module(module_path)
+    class_module = import_module(module_path)
     class_name = parts[-1]
-    source_class = getattr(source_module, class_name)
-    return source_class
+    return getattr(class_module, class_name)
 
 
 def get_source(config):
@@ -43,19 +42,25 @@ if __name__ == '__main__':
     parser = argparse.ArgumentParser()
     parser.add_argument('--config', type=str, default='')
     parser.add_argument('--source', type=str, default='keras_htr.data_source.synthetic.SyntheticSource')
+    parser.add_argument('--preprocessor', type=str, default='keras_htr.preprocessing.Cnn1drnnCtcPreprocessor')
+
     parser.add_argument('--size', type=int, default=1000)
     parser.add_argument('--destination', type=str, default='lines_dataset')
 
     args = parser.parse_args()
     fully_qualified_source = args.source
     config = args.config
+    fully_qualified_preprocessor = args.preprocessor
+    destination = args.destination
+    size = args.size
 
     if config != '':
         source = get_source(config)
     else:
         source = get_source(fully_qualified_source)
 
-    destination = args.destination
+    preprocessor_class = get_class(fully_qualified_preprocessor)
+    preprocessor = preprocessor_class()
 
     if not os.path.isdir(destination):
         os.makedirs(destination)
@@ -64,7 +69,9 @@ if __name__ == '__main__':
                      'will be erased. Continue (Y/N) ?'.format(destination))
     if response == 'Y':
         shutil.rmtree(destination)
-        create_lines_dataset(source, destination_folder=destination,
-                             size=args.size, train_fraction=0.8, val_fraction=0.1)
+        create_lines_dataset(source, preprocessor, destination_folder=destination,
+                             size=size, train_fraction=0.8, val_fraction=0.1)
     else:
         print('Aborting...')
+
+    # todo: import preprocessor from fully qualified class name, refactor

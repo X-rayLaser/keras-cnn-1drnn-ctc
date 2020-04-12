@@ -5,128 +5,11 @@ import numpy as np
 import json
 import scipy
 from keras_htr.models import compute_output_shape
-from keras_htr.preprocessing import get_image_array, BasePreprocessor
 
 
 class BaseGenerator:
     def __iter__(self):
         raise NotImplementedError
-
-    def get_image_array(self, image_path, target_height):
-        return get_image_array(image_path, target_height)
-
-
-class MyExampleGenerator(BaseGenerator):
-    def __init__(self, dataset_root, image_height, batch_size=32):
-        self._root = dataset_root
-        self._image_height = image_height
-        self._batch_size = batch_size
-
-        self._label_words = []
-        split_path, _ = os.path.split(dataset_root)
-        with open(os.path.join(split_path, 'dictionary.txt')) as f:
-            for line in f.readlines():
-                self._label_words.append(line.rstrip('\n'))
-
-        with open(os.path.join(self._root, 'paths_list.txt')) as f:
-            self._paths = f.readlines()
-
-    @property
-    def num_classes(self):
-        return len(self._label_words)
-
-    @property
-    def size(self):
-        return len(self._paths)
-
-    def __iter__(self):
-        paths = self._paths
-
-        while True:
-            random.shuffle(paths)
-
-            x_batch = []
-            y_batch = []
-            for path in paths:
-                image_path = path.rstrip('\n')
-                x, y = self.get_example(image_path)
-
-                x_batch.append(x)
-                y_batch.append(y)
-
-                if len(x_batch) >= self._batch_size:
-                    yield self.prepare_batch(x_batch, y_batch)
-
-            if len(y_batch) > 0:
-                yield self.prepare_batch(x_batch, y_batch)
-
-    def _to_one_hot(self, label):
-        y = np.zeros((1, self.num_classes))
-        y[0, label] = 1.0
-        return y
-
-    def prepare_batch(self, x_batch, y_batch):
-        a = x_batch[0]
-        batch_size = len(y_batch)
-        x_shape = (batch_size,) + a.shape[1:]
-
-        batch = (np.array(x_batch).reshape(x_shape),
-                 np.array(y_batch).reshape(batch_size, -1))
-        x_batch[:] = []
-        y_batch[:] = []
-        return batch
-
-    def get_example(self, image_path):
-        im = self.get_image_array(image_path, self._image_height)
-
-        x = im.reshape(1, *im.shape) / 255.0
-        label = self.get_label(image_path)
-        y = self._to_one_hot(label)
-        return x, y
-
-    def get_label(self, image_path):
-        parent, file_name = os.path.split(image_path)
-        _, label = os.path.split(parent)
-        return int(label)
-
-
-class CtcGenerator(MyExampleGenerator):
-    def __init__(self, dataset_root, image_height, dictionary):
-        super().__init__(dataset_root, image_height, batch_size=1)
-        self._dictionary = dictionary
-
-    def __iter__(self):
-        paths = self._paths
-
-        while True:
-            random.shuffle(paths)
-
-            for path in paths:
-                image_path = path.rstrip('\n')
-                image_array, labels = self.get_example(image_path)
-
-                X = np.array(image_array).reshape(1, *image_array.shape)
-
-                labels = np.array(labels, dtype=np.int32).reshape(1, len(labels))
-
-                lstm_input_shape = compute_output_shape(image_array.shape)
-                width, channels = lstm_input_shape
-                input_lengths = np.array(width, dtype=np.int32).reshape(1, 1)
-                label_lengths = np.array(len(labels[0]), dtype=np.int32).reshape(1, 1)
-
-                yield [X, labels, input_lengths, label_lengths], labels
-
-    def word_label_to_ascii_codes(self, label):
-        word = self._dictionary[label]
-        return [ord(ch) for ch in word]
-
-    def get_example(self, image_path):
-        im = self.get_image_array(image_path, self._image_height)
-
-        x = im / 255.0
-        label = self.get_label(image_path)
-        y = self.word_label_to_ascii_codes(label)
-        return x, y
 
 
 def get_dictionary():
@@ -156,6 +39,8 @@ class CompiledDataset:
 
         self._num_examples = meta_info['num_examples']
 
+        os.path.dirname(dataset_root)
+
     @property
     def size(self):
         return self._num_examples
@@ -171,14 +56,11 @@ class CompiledDataset:
 
 
 class LinesGenerator(BaseGenerator):
-    def __init__(self, dataset_root, char_table, image_height, batch_size=4, augment=False, batch_adapter=None):
+    def __init__(self, dataset_root, char_table, batch_size=4, augment=False, batch_adapter=None):
         self._root = dataset_root
         self._char_table = char_table
         self._batch_size = batch_size
         self._augment = augment
-
-        self._preprocessor = BasePreprocessor(dataset_root, image_height, augment)
-        self._preprocessor.fit()
 
         if batch_adapter is None:
             self._adapter = CTCAdapter()
@@ -187,17 +69,11 @@ class LinesGenerator(BaseGenerator):
 
         self._ds = CompiledDataset(dataset_root)
 
-        self._image_height = image_height
-
         self._indices = list(range(self._ds.size))
 
     @property
     def size(self):
         return self._ds.size
-
-    @property
-    def image_height(self):
-        return self._image_height
 
     def __iter__(self):
         batches_gen = self.get_batches()
@@ -230,7 +106,9 @@ class LinesGenerator(BaseGenerator):
 
     def get_example(self, line_index):
         image_path, text = self._ds.get_example(line_index)
-        x = self._preprocessor.process(image_path)
+        img = tf.keras.preprocessing.image.load_img(image_path, grayscale=True)
+        a = tf.keras.preprocessing.image.img_to_array(img)
+        x = a / 255.0
         y = self.text_to_class_labels(text)
         return x, y
 

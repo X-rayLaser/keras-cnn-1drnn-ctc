@@ -3,80 +3,12 @@ import numpy as np
 import shutil
 import json
 import tensorflow as tf
-from .preprocessing import BasePreprocessor, prepare_x, get_image_array, binarize
-from .generators import CompiledDataset
-
-
-class Cnn1drnnCtcPreprocessor:
-    def __init__(self):
-        self._average_height = 50
-
-    def fit(self, train_path, val_path, test_path):
-        train_ds = CompiledDataset(train_path)
-        self._average_height = train_ds.average_height
-
-    def process(self, image_path):
-        image_array = get_image_array(image_path, self._average_height)
-        a = binarize(image_array)
-        return tf.keras.preprocessing.image.array_to_img(a)
-
-
-class EncoderDecoerPreprocessor:
-    def __init__(self):
-        self._average_height = 50
-        self.max_image_width = 0
-        self.max_text_length = 0
-
-    def fit(self, train_path, val_path, test_path):
-        max_image_width_train, max_text_length_train = self.compute_ds_params(train_path)
-        max_image_width_val, max_text_length_val = self.compute_ds_params(val_path)
-        max_image_width_test, max_text_length_test = self.compute_ds_params(test_path)
-
-        self.max_image_width = max(max_image_width_train, max_image_width_val, max_image_width_test)
-        self.max_text_length = max(max_text_length_train, max_text_length_val, max_text_length_test)
-
-    def compute_ds_params(self, ds_path):
-        from keras_htr.generators import CompiledDataset
-
-        ds = CompiledDataset(ds_path)
-
-        max_image_width = 0
-        max_text_length = 0
-
-        for image_path, text in ds:
-            image_array = get_image_array(image_path, self._average_height)
-            h, w, _ = image_array.shape
-            max_image_width = max(max_image_width, w)
-            max_text_length = max(max_text_length, len(text))
-
-        return max_image_width, max_text_length
-
-    def process(self, image_path):
-        image_array = get_image_array(image_path, self._average_height)
-        a = binarize(image_array)
-        a = self._pad_array_width(a, self.max_image_width)
-        return tf.keras.preprocessing.image.array_to_img(a)
-
-    def _pad_array_width(self, a, target_width):
-        import scipy
-        width = a.shape[1]
-
-        right_padding = target_width - width
-
-        assert right_padding >= 0
-
-        horizontal_padding = (0, right_padding)
-        vertical_padding = (0, 0)
-        depth_padding = (0, 0)
-        return scipy.pad(a, pad_width=[vertical_padding, horizontal_padding, depth_padding])
 
 
 def create_lines_dataset(data_source,
+                         preprocessor,
                          destination_folder='lines_dataset',
-                         size=10000, train_fraction=0.6, val_fraction=0.2,
-                         preprocessor=None):
-    # todo: import preprocessor from fully qualified class name, refactor
-
+                         size=10000, train_fraction=0.6, val_fraction=0.2):
     temp_folder = os.path.join(destination_folder, 'extracted_lines')
 
     extract_lines(data_source, temp_folder, size, train_fraction, val_fraction)
@@ -85,7 +17,6 @@ def create_lines_dataset(data_source,
     val_path = os.path.join(temp_folder, 'validation')
     test_path = os.path.join(temp_folder, 'test')
 
-    preprocessor = Cnn1drnnCtcPreprocessor()
     preprocessor.fit(train_path, val_path, test_path)
 
     split_folders = ['train', 'validation', 'test']
@@ -103,6 +34,8 @@ def create_lines_dataset(data_source,
 
 
 def preprocess_images(source, destination, preprocessor):
+    from keras_htr.generators import CompiledDataset
+
     shutil.copytree(source, destination)
 
     ds = CompiledDataset(destination)
