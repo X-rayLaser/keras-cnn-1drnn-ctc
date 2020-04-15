@@ -224,7 +224,7 @@ if __name__ == '__main__':
 
     parser = argparse.ArgumentParser()
     parser.add_argument('ds', type=str)
-    parser.add_argument('--model_path', type=str, default='conv_lstm_model.h5')
+    parser.add_argument('--model_path', type=str, default='conv_lstm_model')
     parser.add_argument('--lr', type=float, default=0.001)
     parser.add_argument('--batch_size', type=int, default=1)
     parser.add_argument('--units', type=int, default=128)

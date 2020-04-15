@@ -24,16 +24,23 @@ if __name__ == '__main__':
     char_table_path = os.path.join(os.path.dirname(dataset_path), 'character_table.txt')
     char_table = CharTable(char_table_path)
 
-    model = tf.keras.models.load_model(model_path, custom_objects={'tf': tf})
-    batch_size, image_height, image_width, channels = model.input_shape
+    #model = tf.keras.models.load_model(model_path, custom_objects={'tf': tf})
 
+    #weights = model.weights
+    #batch_size, image_height, image_width, channels = model.input_shape
+    from keras_htr.models.cnn_1drnn_ctc import CtcModel
+
+    model = CtcModel.load(model_path)
+
+    model.load(model_path)
     lines_generator = LinesGenerator(dataset_path, char_table, batch_size=1)
 
-    cer = CERevaluator(model, lines_generator, steps=None)
+    cer = CERevaluator(model._get_inference_model(), lines_generator, steps=None)
 
     for x_batch, _ in lines_generator.__iter__():
         (X, labels, input_lengths, label_lengths) = x_batch
-        predictions = predict_labels(model, X, input_lengths)
+        #predictions = predict_labels(model, X, input_lengths)
+        predictions = model.predict(X, input_lengths=input_lengths)
         cer = cer_on_batch(model, x_batch)
         prediction = codes_to_string(predictions[0], char_table)
         ground_true = codes_to_string(labels[0], char_table)

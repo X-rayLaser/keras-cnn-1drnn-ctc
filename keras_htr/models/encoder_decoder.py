@@ -1,10 +1,10 @@
 import tensorflow as tf
 
 from keras_htr import compute_output_shape
-from keras_htr.models.base import create_conv_model
+from keras_htr.models.base import create_conv_model, HTRModel
 
 
-class ConvolutionalEncoderDecoderWithAttention:
+class ConvolutionalEncoderDecoderWithAttention(HTRModel):
     class InferenceModel:
         def __init__(self, encoder, decoder, attention, num_output_tokens):
             self._encoder = encoder

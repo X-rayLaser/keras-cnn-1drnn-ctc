@@ -11,7 +11,8 @@ class HTRModel:
     def save(self, path):
         raise NotImplementedError
 
-    def load(self, path):
+    @classmethod
+    def load(cls, path):
         raise NotImplementedError
 
 

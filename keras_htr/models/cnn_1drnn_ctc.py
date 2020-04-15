@@ -2,10 +2,17 @@ import tensorflow as tf
 
 from .base import HTRModel, create_conv_model
 import math
+import os
+import json
 
 
 class CtcModel(HTRModel):
     def __init__(self, units, num_labels, height, channels=3):
+        self._units = units
+        self._num_labels = num_labels
+        self._height = height
+        self._channels = channels
+
         inp = tf.keras.layers.Input(shape=(height, None, channels))
 
         lstm = tf.keras.layers.Bidirectional(tf.keras.layers.LSTM(units, return_sequences=True))
@@ -36,6 +43,9 @@ class CtcModel(HTRModel):
 
         self.graph_input = inp
 
+        self._weights_model = tf.keras.Model(self.graph_input, self.y_pred)
+
+    def _create_training_model(self):
         def ctc_lambda_func(args):
             y_pred, labels, input_length, label_length = args
 
@@ -50,9 +60,11 @@ class CtcModel(HTRModel):
             ctc_lambda_func, output_shape=(1,),
             name='ctc')([self.y_pred, labels, input_length, label_length])
 
-        self.training_model = tf.keras.Model(inputs=[self.graph_input, labels, input_length, label_length],
-                                             outputs=loss_out)
-        self._inference_model = tf.keras.Model(self.graph_input, self.y_pred)
+        return tf.keras.Model(inputs=[self.graph_input, labels, input_length, label_length],
+                              outputs=loss_out)
+
+    def _create_inference_model(self):
+        return tf.keras.Model(self.graph_input, self.y_pred)
 
     def fit(self, train_generator, val_generator, *args, **kwargs):
         steps_per_epoch = math.ceil(train_generator.size / train_generator.batch_size)
@@ -60,14 +72,16 @@ class CtcModel(HTRModel):
 
         loss = self._get_loss()
         lr = 0.001
-        self.training_model.compile(optimizer=tf.keras.optimizers.Adam(lr=lr), loss=loss, metrics=[])
 
-        self.training_model.fit(train_generator.__iter__(), steps_per_epoch=steps_per_epoch,
-                                validation_data=val_generator.__iter__(), validation_steps=val_steps, *args, **kwargs)
+        training_model = self._create_training_model()
+        training_model.compile(optimizer=tf.keras.optimizers.Adam(lr=lr), loss=loss, metrics=[])
+
+        print(kwargs)
+        training_model.fit(train_generator.__iter__(), steps_per_epoch=steps_per_epoch,
+                           validation_data=val_generator.__iter__(), validation_steps=val_steps, *args, **kwargs)
 
     def _get_inference_model(self):
-        return self._inference_model
-        #return tf.keras.Model(self.graph_input, self.y_pred)
+        return self._create_inference_model()
 
     def predict(self, image_array, **kwargs):
         ypred = self._get_inference_model().predict(image_array)
@@ -76,11 +90,38 @@ class CtcModel(HTRModel):
         return labels
 
     def save(self, path):
-        self._get_inference_model().save(path)
+        if not os.path.exists(path):
+            os.mkdir(path)
 
-    def load(self, path):
-        inference_model = tf.keras.models.load_model(path)
-        raise Exception('What to do now...')
+        params_path = os.path.join(path, 'params.json')
+        weights_path = os.path.join(path, 'weights.h5')
+
+        d = {
+            'units': self._units,
+            'num_labels': self._num_labels,
+            'height': self._height,
+            'channels': self._channels
+        }
+
+        s = json.dumps(d)
+        with open(params_path, 'w') as f:
+            f.write(s)
+
+        self._weights_model.save_weights(weights_path)
+
+    @classmethod
+    def load(cls, path):
+        params_path = os.path.join(path, 'params.json')
+        weights_path = os.path.join(path, 'weights.h5')
+        with open(params_path) as f:
+            s = f.read()
+
+        params = json.loads(s)
+        instance = cls(**params)
+        #model = tf.keras.models.load_model(weights_path, custom_objects={'tf': tf})
+        #weights = model.weights
+        instance._weights_model.load_weights(weights_path)
+        return instance
 
     def _get_loss(self):
         return {'ctc': lambda y_true, y_pred: y_pred}
