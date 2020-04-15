@@ -67,10 +67,10 @@ class CerCallback(Callback):
         return cer.evaluate()
 
 
-class CtcModelCheckpoint(Callback):
-    def __init__(self, ctc_model, save_path):
+class MyModelCheckpoint(Callback):
+    def __init__(self, model, save_path):
         super().__init__()
-        self._model = ctc_model
+        self._model = model
         self._save_path = save_path
 
     def on_epoch_end(self, epoch, logs=None):
@@ -78,12 +78,12 @@ class CtcModelCheckpoint(Callback):
 
 
 class DebugAttentionModelCallback(Callback):
-    def __init__(self, char_table, train_gen, val_gen, attention_model_factory, interval=10):
+    def __init__(self, char_table, train_gen, val_gen, attention_model, interval=10):
         super().__init__()
         self._char_table = char_table
         self._train_gen = train_gen
         self._val_gen = val_gen
-        self._attention_model_factory = attention_model_factory
+        self._attention_model = attention_model
         self._interval = interval
 
     def on_epoch_begin(self, epoch, logs=None):
@@ -100,8 +100,6 @@ class DebugAttentionModelCallback(Callback):
 
             [X, decoder_x], decoder_y = example
 
-            import numpy as np
-
             expected = ''
             for v in decoder_x[0]:
                 label = v.argmax()
@@ -109,7 +107,9 @@ class DebugAttentionModelCallback(Callback):
                     continue
                 expected += self._char_table.get_character(label)
 
-            predicted = self._attention_model_factory.inference_model.predict(X, self._char_table)
+            labels = self._attention_model.predict(X, char_table=self._char_table)
+
+            predicted = ''.join([self._char_table.get_character(label) for label in labels])
             print(expected, '->', predicted)
 
 
@@ -142,7 +142,7 @@ def fit_ctc_model(args):
     model = CtcModel(units=units, num_labels=char_table.size,
                      height=image_height, channels=1)
 
-    checkpoint = CtcModelCheckpoint(model, model_save_path)
+    checkpoint = MyModelCheckpoint(model, model_save_path)
 
     train_debug_generator = LinesGenerator(train_path, char_table, batch_size=1)
     val_debug_generator = LinesGenerator(val_path, char_table, batch_size=1)
@@ -194,29 +194,22 @@ def fit_attention_model(args):
     val_generator = LinesGenerator(val_path, char_table, batch_size,
                                    batch_adapter=adapter)
 
-    model_factory = ConvolutionalEncoderDecoderWithAttention(height=image_height,
-                                                             units=units, output_size=char_table.size,
-                                                             max_image_width=max_image_width,
-                                                             max_text_length=max_text_length)
-    model = model_factory.training_model
-
-    model.compile(optimizer=tf.keras.optimizers.Adam(lr=lr), loss='categorical_crossentropy', metrics=[])
-    train_gen = train_generator.__iter__()
-    val_gen = val_generator.__iter__()
-
-    steps_per_epoch = math.ceil(train_generator.size / batch_size)
-    val_steps = math.ceil(val_generator.size / batch_size)
+    model = ConvolutionalEncoderDecoderWithAttention(height=image_height,
+                                                     units=units, output_size=char_table.size,
+                                                     max_image_width=max_image_width,
+                                                     max_text_length=max_text_length + 1)
 
     train_debug_generator = LinesGenerator(train_path, char_table, batch_size=1,
                                            augment=augment, batch_adapter=adapter)
     val_debug_generator = LinesGenerator(val_path, char_table, batch_size=1,
                                          batch_adapter=adapter)
     output_debugger = DebugAttentionModelCallback(char_table, train_debug_generator, val_debug_generator,
-                                                  model_factory, interval=debug_interval)
+                                                  model, interval=debug_interval)
 
-    callbacks = [output_debugger]
-    model.fit(train_gen, epochs=epochs, steps_per_epoch=steps_per_epoch,
-              validation_data=val_gen, validation_steps=val_steps, callbacks=callbacks)
+    checkpoint = MyModelCheckpoint(model, model_save_path)
+
+    callbacks = [output_debugger, checkpoint]
+    model.fit(train_generator, val_generator, epochs=epochs, callbacks=callbacks)
 
 
 if __name__ == '__main__':

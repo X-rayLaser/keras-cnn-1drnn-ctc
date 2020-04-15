@@ -57,7 +57,7 @@ def make_true_labels(labels, label_lengths):
 
 def cer_on_batch(model, batch):
     X, labels, input_lengths, label_lengths = batch
-    #predicted_labels = predict_labels(model, X, input_lengths)
+
     predicted_labels = model.predict(X, input_lengths=input_lengths).tolist()
 
     expected_labels = make_true_labels(labels, label_lengths)

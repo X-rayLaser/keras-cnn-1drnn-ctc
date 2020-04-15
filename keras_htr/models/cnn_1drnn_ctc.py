@@ -97,10 +97,13 @@ class CtcModel(HTRModel):
         weights_path = os.path.join(path, 'weights.h5')
 
         d = {
-            'units': self._units,
-            'num_labels': self._num_labels,
-            'height': self._height,
-            'channels': self._channels
+            'model_class_name': 'CtcModel',
+            'params': {
+                'units': self._units,
+                'num_labels': self._num_labels,
+                'height': self._height,
+                'channels': self._channels
+            }
         }
 
         s = json.dumps(d)
@@ -116,10 +119,11 @@ class CtcModel(HTRModel):
         with open(params_path) as f:
             s = f.read()
 
-        params = json.loads(s)
+        d = json.loads(s)
+
+        params = d['params']
         instance = cls(**params)
-        #model = tf.keras.models.load_model(weights_path, custom_objects={'tf': tf})
-        #weights = model.weights
+
         instance._weights_model.load_weights(weights_path)
         return instance
 

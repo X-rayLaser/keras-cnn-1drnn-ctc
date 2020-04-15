@@ -1,4 +1,5 @@
 import tensorflow as tf
+import json
 
 
 class HTRModel:
@@ -14,6 +15,16 @@ class HTRModel:
     @classmethod
     def load(cls, path):
         raise NotImplementedError
+
+    def save_model_params(self, params_path, model_class_name, **params):
+        d = {
+            'model_class_name': model_class_name,
+            'params': params
+        }
+
+        s = json.dumps(d)
+        with open(params_path, 'w') as f:
+            f.write(s)
 
 
 def compute_output_shape(input_shape):

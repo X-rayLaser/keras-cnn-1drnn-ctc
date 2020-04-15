@@ -202,8 +202,8 @@ class ConvolutionalEncoderDecoderAdapter(BatchAdapter):
         sos_column = np.ones((batch_size, 1)) * self._sos
         eos_column = np.ones((batch_size, 1)) * self._eos
 
-        decoder_x = np.concatenate([sos_column, padded_labellings], axis=1)[:, :-1]
-        decoder_y = np.concatenate([padded_labellings, eos_column], axis=1)[:, 1:]
+        decoder_x = np.concatenate([sos_column, padded_labellings], axis=1)
+        decoder_y = np.concatenate([padded_labellings, eos_column], axis=1)
 
         decoder_x = tf.keras.utils.to_categorical(decoder_x, num_classes=self._num_classes)
         decoder_y = tf.keras.utils.to_categorical(decoder_y, num_classes=self._num_classes)

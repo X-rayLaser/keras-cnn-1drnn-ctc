@@ -37,7 +37,7 @@ Note that the source argument expects a fully-qualified name of a class represen
 
 ## Train a model
 ```
-python train.py temp_ds --units=32 --epochs=35 --model_path=conv_lstm_model.h5
+python train.py temp_ds --units=32 --epochs=35 --model_path=conv_lstm_model
 ```
 ## Run demo script
 ```
