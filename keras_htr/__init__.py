@@ -8,6 +8,10 @@ from keras_htr.edit_distance import compute_cer
 from keras_htr.models.base import compute_output_shape
 
 
+def codes_to_string(codes, char_table):
+    return ''.join([char_table.get_character(code) for code in codes])
+
+
 def get_meta_info(path='lines_dataset/train'):
     import json
     meta_path = os.path.join(path, 'meta.json')
@@ -68,26 +72,29 @@ def cer_on_batch(model, batch):
 
 
 class CERevaluator:
-    def __init__(self, model, gen, steps):
+    def __init__(self, model, gen, steps, char_table):
         self._model = model
         self._gen = gen
         self._steps = steps
+        self._char_table = char_table
 
     def evaluate(self):
         scores = []
 
-        for i, example in enumerate(self._gen.__iter__()):
+        adapter = self._model.get_adapter()
+        for i, example in enumerate(self._gen):
             if self._steps is not None and i > self._steps:
                 break
 
-            if i >= math.ceil(self._gen.size / self._gen._batch_size):
-                break
+            image_path, ground_true_text = example
+            image = tf.keras.preprocessing.image.load_img(image_path, grayscale=True)
 
-            x_batch, labels_batch = example
+            expected_labels = [[self._char_table.get_label(ch) for ch in ground_true_text]]
+            inputs = adapter.adapt_x(image)
 
-            avg_score = cer_on_batch(self._model, x_batch)
-
-            scores.append(avg_score)
+            predictions = self._model.predict(inputs)
+            cer = compute_cer(expected_labels, predictions.tolist())[0]
+            scores.append(cer)
 
         return np.array(scores).mean()
 

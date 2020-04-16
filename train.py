@@ -1,14 +1,15 @@
 import os
 import logging
-import math
 from keras_htr import get_meta_info, CERevaluator, decode_greedy
 from keras_htr.generators import LinesGenerator
-from keras_htr.adapters.encoder_decoder_adapter import ConvolutionalEncoderDecoderAdapter
 from keras_htr.models.encoder_decoder import ConvolutionalEncoderDecoderWithAttention
 from keras_htr.models.cnn_1drnn_ctc import CtcModel
-import tensorflow as tf
 from tensorflow.keras.callbacks import Callback
 from keras_htr.char_table import CharTable
+from keras_htr.generators import CompiledDataset
+import tensorflow as tf
+from keras_htr.edit_distance import compute_cer
+from keras_htr import codes_to_string
 
 os.environ["TF_CPP_MIN_LOG_LEVEL"] = "3"
 logging.getLogger("tensorflow").setLevel(logging.CRITICAL)
@@ -48,12 +49,12 @@ class DebugCallback(Callback):
 
 
 class CerCallback(Callback):
-    def __init__(self, char_table, train_gen, val_gen, ctc_model_factory, steps=None, interval=10):
+    def __init__(self, char_table, train_gen, val_gen, model, steps=None, interval=10):
         super().__init__()
         self._char_table = char_table
         self._train_gen = train_gen
         self._val_gen = val_gen
-        self._ctc_model_factory = ctc_model_factory
+        self._model = model
         self._steps = steps
         self._interval = interval
 
@@ -61,10 +62,10 @@ class CerCallback(Callback):
         if epoch % self._interval == 0 and epoch > 0:
             train_cer = self.compute_cer(self._train_gen)
             val_cer = self.compute_cer(self._val_gen)
-            print('train CER {}; val CER {}'.format(train_cer, val_cer))
+            print('train LER {}; val LER {}'.format(train_cer, val_cer))
 
     def compute_cer(self, gen):
-        cer = CERevaluator(self._ctc_model_factory._get_inference_model(), gen, self._steps)
+        cer = CERevaluator(self._model, gen, self._steps, self._char_table)
         return cer.evaluate()
 
 
@@ -84,7 +85,7 @@ class DebugAttentionModelCallback(Callback):
         self._char_table = char_table
         self._train_gen = train_gen
         self._val_gen = val_gen
-        self._attention_model = attention_model
+        self._model = attention_model
         self._interval = interval
 
     def on_epoch_begin(self, epoch, logs=None):
@@ -95,23 +96,24 @@ class DebugAttentionModelCallback(Callback):
             self.show_predictions(self._val_gen)
 
     def show_predictions(self, gen):
+        adapter = self._model.get_adapter()
         for i, example in enumerate(gen.__iter__()):
+            image_path, ground_true_text = example
             if i > 5:
                 break
 
-            [X, decoder_x], decoder_y = example
+            image = tf.keras.preprocessing.image.load_img(image_path, grayscale=True)
 
-            expected = ''
-            for v in decoder_x[0]:
-                label = v.argmax()
-                if label == self._char_table.sos or label == self._char_table.eos:
-                    continue
-                expected += self._char_table.get_character(label)
+            expected_labels = [[self._char_table.get_label(ch) for ch in ground_true_text]]
 
-            labels = self._attention_model.predict([X, self._char_table.sos, self._char_table.eos])
-            labels = labels[0]
-            predicted = ''.join([self._char_table.get_character(label) for label in labels])
-            print(expected, '->', predicted)
+            inputs = adapter.adapt_x(image)
+
+            predictions = self._model.predict(inputs)
+            cer = compute_cer(expected_labels, predictions.tolist())[0]
+
+            predicted_text = codes_to_string(predictions[0], self._char_table)
+
+            print('LER {}, "{}" -> "{}"'.format(cer, ground_true_text, predicted_text))
 
 
 def fit_ctc_model(args):
@@ -201,16 +203,20 @@ def fit_attention_model(args):
     val_generator = LinesGenerator(val_path, char_table, batch_size,
                                    batch_adapter=adapter)
 
-    train_debug_generator = LinesGenerator(train_path, char_table, batch_size=1,
-                                           augment=augment, batch_adapter=adapter)
-    val_debug_generator = LinesGenerator(val_path, char_table, batch_size=1,
-                                         batch_adapter=adapter)
+    train_debug_generator = CompiledDataset(train_path)
+    val_debug_generator = CompiledDataset(val_path)
     output_debugger = DebugAttentionModelCallback(char_table, train_debug_generator, val_debug_generator,
                                                   model, interval=debug_interval)
 
     checkpoint = MyModelCheckpoint(model, model_save_path)
 
-    callbacks = [output_debugger, checkpoint]
+    cer_generator = CompiledDataset(train_path)
+    cer_val_generator = CompiledDataset(val_path)
+    CER_metric = CerCallback(char_table, cer_generator, cer_val_generator,
+                             model, steps=16, interval=debug_interval)
+
+    callbacks = [checkpoint, output_debugger, CER_metric]
+
     model.fit(train_generator, val_generator, epochs=epochs, callbacks=callbacks)
 
 
