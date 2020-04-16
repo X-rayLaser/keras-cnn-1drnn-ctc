@@ -83,8 +83,8 @@ class CtcModel(HTRModel):
     def _get_inference_model(self):
         return self._create_inference_model()
 
-    def predict(self, image_array, **kwargs):
-        ypred = self._get_inference_model().predict(image_array)
+    def predict(self, X, **kwargs):
+        ypred = self._get_inference_model().predict(X)
         input_lengths = kwargs['input_lengths']
         labels = decode_greedy(ypred, input_lengths)
         return labels

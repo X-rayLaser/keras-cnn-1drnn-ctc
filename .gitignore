@@ -14,3 +14,4 @@ keras_htr.egg-info/
 temp_ds/
 *.zip
 conv_lstm_model/
+iam_database/

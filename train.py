@@ -2,7 +2,8 @@ import os
 import logging
 import math
 from keras_htr import get_meta_info, CERevaluator, decode_greedy
-from keras_htr.generators import LinesGenerator, ConvolutionalEncoderDecoderAdapter
+from keras_htr.generators import LinesGenerator
+from keras_htr.adapters.encoder_decoder_adapter import ConvolutionalEncoderDecoderAdapter
 from keras_htr.models.encoder_decoder import ConvolutionalEncoderDecoderWithAttention
 from keras_htr.models.cnn_1drnn_ctc import CtcModel
 import tensorflow as tf
@@ -108,7 +109,7 @@ class DebugAttentionModelCallback(Callback):
                 expected += self._char_table.get_character(label)
 
             labels = self._attention_model.predict(X, char_table=self._char_table)
-
+            labels = labels[0]
             predicted = ''.join([self._char_table.get_character(label) for label in labels])
             print(expected, '->', predicted)
 

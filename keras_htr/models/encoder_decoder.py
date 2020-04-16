@@ -5,6 +5,7 @@ from keras_htr.models.base import create_conv_model, HTRModel
 import math
 import os
 import json
+import numpy as np
 
 
 class ConvolutionalEncoderDecoderWithAttention(HTRModel):
@@ -15,11 +16,12 @@ class ConvolutionalEncoderDecoderWithAttention(HTRModel):
             self._attention = attention
             self._num_output_tokens = num_output_tokens
 
-        def predict(self, image_array, sos, eos):
-            encoder_activations, state_h, state_c = self._encoder(image_array)
+        def predict_single_output(self, x, sos, eos):
+            h, w, c = x.shape
+            x = x.reshape((1, h, w, c))
+            encoder_activations, state_h, state_c = self._encoder(x)
             concatenator = tf.keras.layers.Concatenate(axis=1)
 
-            import numpy as np
             y_prev = np.zeros((1, self._num_output_tokens))
             y_prev[0, sos] = 1.0
 
@@ -38,7 +40,7 @@ class ConvolutionalEncoderDecoderWithAttention(HTRModel):
                 y_prev = np.zeros((1, self._num_output_tokens))
                 y_prev[0, code] = 1.0
 
-                if code == eos or len(labels) > 50:
+                if code == eos or len(labels) > 100:
                     break
 
                 if code == sos:
@@ -47,6 +49,9 @@ class ConvolutionalEncoderDecoderWithAttention(HTRModel):
                 labels.append(code)
 
             return labels
+
+        def predict(self, X, sos, eos):
+            return [self.predict_single_output(x, sos, eos) for x in X]
 
     def __init__(self, height, units, output_size, max_image_width, max_text_length):
         self._height = height
@@ -112,12 +117,12 @@ class ConvolutionalEncoderDecoderWithAttention(HTRModel):
         training_model.fit(train_generator.__iter__(), steps_per_epoch=steps_per_epoch,
                            validation_data=val_generator.__iter__(), validation_steps=val_steps, *args, **kwargs)
 
-    def predict(self, image_array, **kwargs):
+    def predict(self, X, **kwargs):
         model = self.InferenceModel(self._encoder, self._decoder, self._attention, self._num_output_tokens)
         char_table = kwargs['char_table']
         sos = char_table.sos
         eos = char_table.eos
-        return model.predict(image_array, sos, eos)
+        return model.predict(X, sos, eos)
 
     def save(self, path):
         if not os.path.exists(path):
@@ -226,3 +231,6 @@ def make_attention_model(num_activations, encoder_num_units):
     context = reshapor(context)
 
     return tf.keras.Model([encoder_activations] + encoder_states, context)
+
+
+# todo: model as in paper

@@ -6,7 +6,7 @@ class HTRModel:
     def fit(self, train_gen, val_gen, *args, **kwargs):
         raise NotImplementedError
 
-    def predict(self, image_array, **kwargs):
+    def predict(self, X, **kwargs):
         raise NotImplementedError
 
     def save(self, path):

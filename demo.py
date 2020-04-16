@@ -1,4 +1,5 @@
 from keras_htr import CERevaluator, predict_labels, cer_on_batch
+from keras_htr.edit_distance import compute_cer
 from keras_htr.generators import LinesGenerator
 import tensorflow as tf
 import numpy as np
@@ -7,50 +8,53 @@ import os
 import json
 from keras_htr.models.cnn_1drnn_ctc import CtcModel
 from keras_htr.models.encoder_decoder import ConvolutionalEncoderDecoderWithAttention
-from keras_htr.generators import ConvolutionalEncoderDecoderAdapter, CTCAdapter
+from keras_htr.adapters.encoder_decoder_adapter import ConvolutionalEncoderDecoderAdapter
+from keras_htr.adapters.cnn_1drnn_ctc_adapter import CTCAdapter
 
 
 def codes_to_string(codes, char_table):
     return ''.join([char_table.get_character(code) for code in codes])
 
 
-def run_demo_for_ctc_model(gen):
+def run_demo_for_ctc_model(model, gen, char_table, adapter):
+    for image_path, ground_true_text in gen.__iter__():
+        img = tf.keras.preprocessing.image.load_img(image_path, grayscale=True)
+        a = tf.keras.preprocessing.image.img_to_array(img)
+        x = [a / 255.0]
+        expected_labels = [[char_table.get_label(ch) for ch in ground_true_text]]
+        batch = (x, expected_labels)
 
-    for x_batch, _ in gen.__iter__():
+        x_batch, y_batch = adapter.adapt_batch(batch)
         (X, labels, input_lengths, label_lengths) = x_batch
+
         predictions = model.predict(X, input_lengths=input_lengths, char_table=char_table)
         cer = cer_on_batch(model, x_batch)
-        print(predictions.shape)
-        prediction = codes_to_string(predictions[0], char_table)
-        ground_true = codes_to_string(labels[0], char_table)
-        a = np.array(X[0] * 255)
-        im = tf.keras.preprocessing.image.array_to_img(a)
-        im.show()
-        print('LER {}, "{}" -> "{}"'.format(cer, ground_true, prediction))
+
+        predicted_text = codes_to_string(predictions[0], char_table)
+
+        img.show()
+        print('LER {}, "{}" -> "{}"'.format(cer, ground_true_text, predicted_text))
         input('Press any key to see next example')
 
 
-def run_demo_for_attention_model(gen, char_table):
-    for x_batch, decoder_y in gen.__iter__():
+def run_demo_for_attention_model(model, gen, char_table, adapter):
+    for image_path, ground_true_text in gen.__iter__():
+        img = tf.keras.preprocessing.image.load_img(image_path, grayscale=True)
+        a = tf.keras.preprocessing.image.img_to_array(img)
+        x = [a / 255.0]
+        expected_labels = [[char_table.get_label(ch) for ch in ground_true_text]]
+        batch = (x, expected_labels)
+
+        x_batch, y_batch = adapter.adapt_batch(batch)
         X, decoder_x = x_batch
-        expected = ''
-        for v in decoder_x[0]:
-            label = v.argmax()
-            if label == char_table.sos or label == char_table.eos:
-                continue
-            expected += char_table.get_character(label)
 
-        image_array = X[0]
         predictions = model.predict(X, char_table=char_table)
+        cer = compute_cer(expected_labels, predictions)
 
-        #cer = cer_on_batch(model, x_batch)
-        cer = 1
-        prediction = codes_to_string(predictions, char_table)
-        ground_true = expected
-        a = image_array * 255
-        im = tf.keras.preprocessing.image.array_to_img(a)
-        im.show()
-        print('LER {}, "{}" -> "{}"'.format(cer, ground_true, prediction))
+        predicted_text = codes_to_string(predictions[0], char_table)
+
+        img.show()
+        print('LER {}, "{}" -> "{}"'.format(cer, ground_true_text, predicted_text))
         input('Press any key to see next example')
 
 
@@ -74,20 +78,22 @@ if __name__ == '__main__':
     d = json.loads(s)
 
     class_name = d['model_class_name']
+    from keras_htr.generators import CompiledDataset
+
+    ds = CompiledDataset(dataset_path)
+
     if class_name == 'CtcModel':
-        lines_generator = LinesGenerator(dataset_path, char_table, batch_size=1, batch_adapter=CTCAdapter())
+        adapter = CTCAdapter()
         model = CtcModel.load(model_path)
-        run_demo_for_ctc_model(lines_generator)
+        run_demo_for_ctc_model(model, ds, char_table, adapter=adapter)
     else:
         model = ConvolutionalEncoderDecoderWithAttention.load(model_path)
-        lines_generator = LinesGenerator(
-            dataset_path, char_table, batch_size=1,
-            batch_adapter=ConvolutionalEncoderDecoderAdapter(char_table=char_table,
-                                                             max_image_width=model._max_image_width,
-                                                             max_text_length=model._max_text_length)
-        )
 
-        run_demo_for_attention_model(lines_generator, char_table)
+        adapter = ConvolutionalEncoderDecoderAdapter(char_table=char_table,
+                                                     max_image_width=model._max_image_width,
+                                                     max_text_length=model._max_text_length)
+
+        run_demo_for_attention_model(model, ds, char_table, adapter=adapter)
 
 
 # todo: do polymorphism
