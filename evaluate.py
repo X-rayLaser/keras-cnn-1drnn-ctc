@@ -1,4 +1,4 @@
-from keras_htr import CERevaluator
+from keras_htr import LEREvaluator
 from keras_htr.generators import LinesGenerator
 import tensorflow as tf
 
@@ -22,7 +22,7 @@ if __name__ == '__main__':
 
     lines_generator = LinesGenerator(dataset_path, image_height, batch_size=1)
 
-    evaluator = CERevaluator(model, lines_generator, steps=steps)
+    evaluator = LEREvaluator(model, lines_generator, steps=steps)
 
     cer = evaluator.evaluate()
     print('Average CER metric is {}'.format(cer))

@@ -6,15 +6,12 @@ import json
 from keras_htr.models.cnn_1drnn_ctc import CtcModel
 from keras_htr.models.encoder_decoder import ConvolutionalEncoderDecoderWithAttention
 from keras_htr.generators import CompiledDataset
-
-
-def codes_to_string(codes, char_table):
-    return ''.join([char_table.get_character(code) for code in codes])
+from keras_htr import codes_to_string
 
 
 def run_demo(model, gen, char_table, adapter):
     for image_path, ground_true_text in gen.__iter__():
-        image = tf.keras.preprocessing.image.load_img(image_path, grayscale=True)
+        image = tf.keras.preprocessing.image.load_img(image_path, color_mode="grayscale")
 
         expected_labels = [[char_table.get_label(ch) for ch in ground_true_text]]
 

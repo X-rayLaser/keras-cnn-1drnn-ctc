@@ -109,7 +109,7 @@ class LinesGenerator(BaseGenerator):
 
     def get_example(self, line_index):
         image_path, text = self._ds.get_example(line_index)
-        img = tf.keras.preprocessing.image.load_img(image_path, grayscale=True)
+        img = tf.keras.preprocessing.image.load_img(image_path, color_mode="grayscale")
         a = tf.keras.preprocessing.image.img_to_array(img)
         x = a / 255.0
         y = self.text_to_class_labels(text)

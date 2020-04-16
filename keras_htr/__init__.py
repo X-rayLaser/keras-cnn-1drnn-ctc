@@ -71,11 +71,11 @@ def cer_on_batch(model, batch):
     return tf.reduce_mean(label_error_rates).numpy().flatten()[0]
 
 
-class CERevaluator:
+class LEREvaluator:
     def __init__(self, model, gen, steps, char_table):
         self._model = model
         self._gen = gen
-        self._steps = steps
+        self._steps = steps or 10
         self._char_table = char_table
 
     def evaluate(self):
@@ -83,11 +83,11 @@ class CERevaluator:
 
         adapter = self._model.get_adapter()
         for i, example in enumerate(self._gen):
-            if self._steps is not None and i > self._steps:
+            if i > self._steps:
                 break
 
             image_path, ground_true_text = example
-            image = tf.keras.preprocessing.image.load_img(image_path, grayscale=True)
+            image = tf.keras.preprocessing.image.load_img(image_path, color_mode="grayscale")
 
             expected_labels = [[self._char_table.get_label(ch) for ch in ground_true_text]]
             inputs = adapter.adapt_x(image)
