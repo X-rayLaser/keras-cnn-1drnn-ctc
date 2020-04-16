@@ -5,10 +5,10 @@ from keras_htr.adapters.base import BatchAdapter
 
 
 class ConvolutionalEncoderDecoderAdapter(BatchAdapter):
-    def __init__(self, char_table, max_image_width, max_text_length):
-        self._sos = char_table.sos
-        self._eos = char_table.eos
-        self._num_classes = char_table.size
+    def __init__(self, sos, eos, num_output_tokens, max_image_width, max_text_length):
+        self._sos = sos
+        self._eos = eos
+        self._num_classes = num_output_tokens
 
         self._max_image_width = max_image_width
         self._max_text_length = max_text_length
@@ -38,3 +38,9 @@ class ConvolutionalEncoderDecoderAdapter(BatchAdapter):
         decoder_y = list(np.swapaxes(decoder_y, 0, 1))
 
         return [x, decoder_x], decoder_y
+
+    def adapt_x(self, image):
+        a = tf.keras.preprocessing.image.img_to_array(image)
+        x = a / 255.0
+        X = np.array(x).reshape(1, *x.shape)
+        return X, self._sos, self._eos

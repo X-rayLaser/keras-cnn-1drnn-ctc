@@ -83,9 +83,13 @@ class CtcModel(HTRModel):
     def _get_inference_model(self):
         return self._create_inference_model()
 
-    def predict(self, X, **kwargs):
+    def get_adapter(self):
+        from ..adapters.cnn_1drnn_ctc_adapter import CTCAdapter
+        return CTCAdapter()
+
+    def predict(self, inputs, **kwargs):
+        X, input_lengths = inputs
         ypred = self._get_inference_model().predict(X)
-        input_lengths = kwargs['input_lengths']
         labels = decode_greedy(ypred, input_lengths)
         return labels
 

@@ -6,6 +6,7 @@ import math
 import os
 import json
 import numpy as np
+from ..adapters.encoder_decoder_adapter import ConvolutionalEncoderDecoderAdapter
 
 
 class ConvolutionalEncoderDecoderWithAttention(HTRModel):
@@ -51,14 +52,16 @@ class ConvolutionalEncoderDecoderWithAttention(HTRModel):
             return labels
 
         def predict(self, X, sos, eos):
-            return [self.predict_single_output(x, sos, eos) for x in X]
+            return np.array([self.predict_single_output(x, sos, eos) for x in X])
 
-    def __init__(self, height, units, output_size, max_image_width, max_text_length):
+    def __init__(self, height, units, output_size, max_image_width, max_text_length, sos, eos):
         self._height = height
         self._units = units
         self._output_size = output_size
         self._max_image_width = max_image_width
         self._max_text_length = max_text_length
+        self._sos = sos
+        self._eos = eos
 
         channels = 1
         Tx = max_text_length
@@ -106,6 +109,15 @@ class ConvolutionalEncoderDecoderWithAttention(HTRModel):
 
         return tf.keras.Model([self._encoder_inputs, self._decoder_inputs], outputs)
 
+    def get_adapter(self):
+        return ConvolutionalEncoderDecoderAdapter(
+            sos=self._sos,
+            eos=self._eos,
+            num_output_tokens=self._num_output_tokens,
+            max_image_width=self._max_image_width,
+            max_text_length=self._max_text_length - 1
+        )
+
     def fit(self, train_generator, val_generator, *args, **kwargs):
         steps_per_epoch = math.ceil(train_generator.size / train_generator.batch_size)
         val_steps = math.ceil(val_generator.size / val_generator.batch_size)
@@ -117,11 +129,9 @@ class ConvolutionalEncoderDecoderWithAttention(HTRModel):
         training_model.fit(train_generator.__iter__(), steps_per_epoch=steps_per_epoch,
                            validation_data=val_generator.__iter__(), validation_steps=val_steps, *args, **kwargs)
 
-    def predict(self, X, **kwargs):
+    def predict(self, inputs, **kwargs):
+        X, sos, eos = inputs
         model = self.InferenceModel(self._encoder, self._decoder, self._attention, self._num_output_tokens)
-        char_table = kwargs['char_table']
-        sos = char_table.sos
-        eos = char_table.eos
         return model.predict(X, sos, eos)
 
     def save(self, path):
@@ -137,7 +147,9 @@ class ConvolutionalEncoderDecoderWithAttention(HTRModel):
                                height=self._height, units=self._units,
                                output_size=self._output_size,
                                max_image_width=self._max_image_width,
-                               max_text_length=self._max_text_length)
+                               max_text_length=self._max_text_length,
+                               sos=self._sos,
+                               eos=self._eos)
 
         self._encoder.save(encoder_weights_path)
         self._decoder.save(decoder_weights_path)

@@ -5,6 +5,9 @@ class BatchAdapter:
     def fit(self, batches):
         pass
 
+    def adapt_x(self, image):
+        raise NotImplementedError
+
     def adapt_batch(self, batch):
         raise NotImplementedError
 

@@ -38,7 +38,7 @@ class DebugCallback(Callback):
 
             (X, labels, input_lengths, label_lengths), labels = example
             expected = ''.join([self._char_table.get_character(code) for code in labels[0]])
-            labels = self._ctc_model_factory.predict(X, input_lengths=input_lengths)
+            labels = self._ctc_model_factory.predict([X, input_lengths])
 
             #ypred = self._ctc_model_factory.inference_model.predict(X)
             #labels = decode_greedy(ypred, input_lengths)
@@ -108,7 +108,7 @@ class DebugAttentionModelCallback(Callback):
                     continue
                 expected += self._char_table.get_character(label)
 
-            labels = self._attention_model.predict(X, char_table=self._char_table)
+            labels = self._attention_model.predict([X, self._char_table.sos, self._char_table.eos])
             labels = labels[0]
             predicted = ''.join([self._char_table.get_character(label) for label in labels])
             print(expected, '->', predicted)
@@ -187,18 +187,19 @@ def fit_attention_model(args):
     max_text_length = max(get_meta_info(path=train_path)['max_text_length'], get_meta_info(val_path)['max_text_length'],
                           get_meta_info(test_path)['max_text_length'])
 
-    adapter = ConvolutionalEncoderDecoderAdapter(char_table, max_image_width, max_text_length)
+    model = ConvolutionalEncoderDecoderWithAttention(height=image_height,
+                                                     units=units, output_size=char_table.size,
+                                                     max_image_width=max_image_width,
+                                                     max_text_length=max_text_length + 1,
+                                                     sos=char_table.sos, eos=char_table.eos)
+
+    adapter = model.get_adapter()
 
     train_generator = LinesGenerator(train_path, char_table, batch_size,
                                      augment=augment, batch_adapter=adapter)
 
     val_generator = LinesGenerator(val_path, char_table, batch_size,
                                    batch_adapter=adapter)
-
-    model = ConvolutionalEncoderDecoderWithAttention(height=image_height,
-                                                     units=units, output_size=char_table.size,
-                                                     max_image_width=max_image_width,
-                                                     max_text_length=max_text_length + 1)
 
     train_debug_generator = LinesGenerator(train_path, char_table, batch_size=1,
                                            augment=augment, batch_adapter=adapter)

@@ -3,10 +3,13 @@ import json
 
 
 class HTRModel:
+    def get_adapter(self):
+        raise NotImplementedError
+
     def fit(self, train_gen, val_gen, *args, **kwargs):
         raise NotImplementedError
 
-    def predict(self, X, **kwargs):
+    def predict(self, inputs, **kwargs):
         raise NotImplementedError
 
     def save(self, path):
