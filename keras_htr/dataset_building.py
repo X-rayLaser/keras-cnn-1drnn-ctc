@@ -18,6 +18,8 @@ def create_lines_dataset(data_source,
     test_path = os.path.join(temp_folder, 'test')
 
     preprocessor.fit(train_path, val_path, test_path)
+    preprocessor_path = os.path.join(destination_folder, 'preprocessing.json')
+    preprocessor.save(preprocessor_path)
 
     split_folders = ['train', 'validation', 'test']
 

@@ -44,6 +44,7 @@ class CtcModel(HTRModel):
         self.graph_input = inp
 
         self._weights_model = tf.keras.Model(self.graph_input, self.y_pred)
+        self._preprocessing_options = {}
 
     def _create_training_model(self):
         def ctc_lambda_func(args):
@@ -83,6 +84,12 @@ class CtcModel(HTRModel):
     def _get_inference_model(self):
         return self._create_inference_model()
 
+    def get_preprocessor(self):
+        from keras_htr.preprocessing import Cnn1drnnCtcPreprocessor
+        preprocessor = Cnn1drnnCtcPreprocessor()
+        preprocessor.configure(**self._preprocessing_options)
+        return preprocessor
+
     def get_adapter(self):
         from ..adapters.cnn_1drnn_ctc_adapter import CTCAdapter
         return CTCAdapter()
@@ -93,27 +100,20 @@ class CtcModel(HTRModel):
         labels = decode_greedy(ypred, input_lengths)
         return labels
 
-    def save(self, path):
+    def save(self, path, preprocessing_params):
         if not os.path.exists(path):
             os.mkdir(path)
 
         params_path = os.path.join(path, 'params.json')
         weights_path = os.path.join(path, 'weights.h5')
 
-        d = {
-            'model_class_name': 'CtcModel',
-            'params': {
-                'units': self._units,
-                'num_labels': self._num_labels,
-                'height': self._height,
-                'channels': self._channels
-            }
-        }
-
-        s = json.dumps(d)
-        with open(params_path, 'w') as f:
-            f.write(s)
-
+        model_params = dict(
+            units=self._units,
+            num_labels=self._num_labels,
+            height=self._height,
+            channels=self._channels
+        )
+        self.save_model_params(params_path, 'CtcModel', model_params, preprocessing_params)
         self._weights_model.save_weights(weights_path)
 
     @classmethod
@@ -129,6 +129,7 @@ class CtcModel(HTRModel):
         instance = cls(**params)
 
         instance._weights_model.load_weights(weights_path)
+        instance._preprocessing_options = d['preprocessing']
         return instance
 
     def _get_loss(self):

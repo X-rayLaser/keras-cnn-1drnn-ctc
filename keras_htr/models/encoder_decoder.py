@@ -85,6 +85,8 @@ class ConvolutionalEncoderDecoderWithAttention(HTRModel):
         self._attention = attention
         self._num_output_tokens = output_size
 
+        self._preprocessing_options = {}
+
     @property
     def inference_model(self):
         model = self.InferenceModel(self._encoder, self._decoder, self._attention, self._num_output_tokens)
@@ -118,6 +120,12 @@ class ConvolutionalEncoderDecoderWithAttention(HTRModel):
             max_text_length=self._max_text_length - 1
         )
 
+    def get_preprocessor(self):
+        from keras_htr.preprocessing import EncoderDecoderPreprocessor
+        preprocessor = EncoderDecoderPreprocessor()
+        preprocessor.configure(**self._preprocessing_options)
+        return preprocessor
+
     def fit(self, train_generator, val_generator, *args, **kwargs):
         steps_per_epoch = math.ceil(train_generator.size / train_generator.batch_size)
         val_steps = math.ceil(val_generator.size / val_generator.batch_size)
@@ -134,7 +142,7 @@ class ConvolutionalEncoderDecoderWithAttention(HTRModel):
         model = self.InferenceModel(self._encoder, self._decoder, self._attention, self._num_output_tokens)
         return model.predict(X, sos, eos)
 
-    def save(self, path):
+    def save(self, path, preprocessing_params):
         if not os.path.exists(path):
             os.mkdir(path)
 
@@ -143,13 +151,20 @@ class ConvolutionalEncoderDecoderWithAttention(HTRModel):
         decoder_weights_path = os.path.join(path, 'decoder.h5')
         attention_weights_path = os.path.join(path, 'attention.h5')
 
-        self.save_model_params(params_path, 'ConvolutionalEncoderDecoderWithAttention',
-                               height=self._height, units=self._units,
-                               output_size=self._output_size,
-                               max_image_width=self._max_image_width,
-                               max_text_length=self._max_text_length,
-                               sos=self._sos,
-                               eos=self._eos)
+        model_params = dict(
+            height=self._height, units=self._units,
+            output_size=self._output_size,
+            max_image_width=self._max_image_width,
+            max_text_length=self._max_text_length,
+            sos=self._sos,
+            eos=self._eos
+        )
+        self.save_model_params(
+            params_path,
+            'ConvolutionalEncoderDecoderWithAttention',
+            model_params,
+            preprocessing_params
+        )
 
         self._encoder.save(encoder_weights_path)
         self._decoder.save(decoder_weights_path)
@@ -173,6 +188,7 @@ class ConvolutionalEncoderDecoderWithAttention(HTRModel):
         instance._encoder = tf.keras.models.load_model(encoder_weights_path)
         instance._decoder = tf.keras.models.load_model(decoder_weights_path)
         instance._attention = tf.keras.models.load_model(attention_weights_path)
+        instance._preprocessing_options = d['preprocessing']
 
         return instance
 

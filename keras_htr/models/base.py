@@ -4,6 +4,9 @@ import os
 
 
 class HTRModel:
+    def get_preprocessor(self):
+        raise NotImplementedError
+
     def get_adapter(self):
         raise NotImplementedError
 
@@ -13,17 +16,18 @@ class HTRModel:
     def predict(self, inputs, **kwargs):
         raise NotImplementedError
 
-    def save(self, path):
+    def save(self, path, preprocessing_params):
         raise NotImplementedError
 
     @classmethod
     def load(cls, path):
         raise NotImplementedError
 
-    def save_model_params(self, params_path, model_class_name, **params):
+    def save_model_params(self, params_path, model_class_name, model_params, preprocessing_params):
         d = {
             'model_class_name': model_class_name,
-            'params': params
+            'params': model_params,
+            'preprocessing': preprocessing_params
         }
 
         s = json.dumps(d)

@@ -1,5 +1,5 @@
 import numpy as np
-import scipy
+import json
 import tensorflow as tf
 
 from keras_htr.generators import CompiledDataset
@@ -112,20 +112,30 @@ def rgb_to_grayscale(a):
 
 
 class BasePreprocessor:
-    def __init__(self, dataset_root, image_height, augment):
-        self._image_height = image_height
-        self._augment = augment
+    def fit(self, train_path, val_path, test_path):
+        pass
 
-    def fit(self):
+    def configure(self, **kwargs):
         pass
 
     def process(self, image_path):
-        return prepare_x(image_path, self._image_height, transform=self._augment)
+        raise NotImplementedError
+
+    def save(self, path):
+        raise NotImplementedError
+
+    def _save_dict(self, path, d):
+        s = json.dumps(d)
+        with open(path, 'w') as f:
+            f.write(s)
 
 
-class Cnn1drnnCtcPreprocessor:
+class Cnn1drnnCtcPreprocessor(BasePreprocessor):
     def __init__(self):
         self._average_height = 50
+
+    def configure(self, average_height=50):
+        self._average_height = average_height
 
     def fit(self, train_path, val_path, test_path):
         train_ds = CompiledDataset(train_path)
@@ -136,20 +146,29 @@ class Cnn1drnnCtcPreprocessor:
         a = binarize(image_array)
         return tf.keras.preprocessing.image.array_to_img(a)
 
+    def save(self, path):
+        d = {'average_height': self._average_height}
+        self._save_dict(path, d)
 
-class EncoderDecoderPreprocessor:
+
+class EncoderDecoderPreprocessor(BasePreprocessor):
     def __init__(self):
         self._average_height = 50
-        self.max_image_width = 0
-        self.max_text_length = 0
+        self._max_image_width = 0
+        self._max_text_length = 0
+
+    def configure(self, average_height=50, max_image_width=1200, max_text_length=100):
+        self._average_height = average_height
+        self._max_image_width = max_image_width
+        self._max_text_length = max_text_length
 
     def fit(self, train_path, val_path, test_path):
         max_image_width_train, max_text_length_train = self.compute_ds_params(train_path)
         max_image_width_val, max_text_length_val = self.compute_ds_params(val_path)
         max_image_width_test, max_text_length_test = self.compute_ds_params(test_path)
 
-        self.max_image_width = max(max_image_width_train, max_image_width_val, max_image_width_test)
-        self.max_text_length = max(max_text_length_train, max_text_length_val, max_text_length_test)
+        self._max_image_width = max(max_image_width_train, max_image_width_val, max_image_width_test)
+        self._max_text_length = max(max_text_length_train, max_text_length_val, max_text_length_test)
 
     def compute_ds_params(self, ds_path):
         ds = CompiledDataset(ds_path)
@@ -168,7 +187,7 @@ class EncoderDecoderPreprocessor:
     def process(self, image_path):
         image_array = get_image_array(image_path, self._average_height)
         a = binarize(image_array)
-        a = self._pad_array_width(a, self.max_image_width)
+        a = self._pad_array_width(a, self._max_image_width)
         return tf.keras.preprocessing.image.array_to_img(a)
 
     def _pad_array_width(self, a, target_width):
@@ -182,3 +201,10 @@ class EncoderDecoderPreprocessor:
         vertical_padding = (0, 0)
         depth_padding = (0, 0)
         return scipy.pad(a, pad_width=[vertical_padding, horizontal_padding, depth_padding])
+
+    def save(self, path):
+        d = dict(average_height=self._average_height,
+                 max_image_width=self._max_image_width,
+                 max_text_length=self._max_text_length)
+
+        self._save_dict(path, d)

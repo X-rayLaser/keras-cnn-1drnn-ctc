@@ -10,6 +10,7 @@ from keras_htr.generators import CompiledDataset
 import tensorflow as tf
 from keras_htr.edit_distance import compute_cer
 from keras_htr import codes_to_string
+import json
 
 os.environ["TF_CPP_MIN_LOG_LEVEL"] = "3"
 logging.getLogger("tensorflow").setLevel(logging.CRITICAL)
@@ -38,13 +39,14 @@ class CerCallback(Callback):
 
 
 class MyModelCheckpoint(Callback):
-    def __init__(self, model, save_path):
+    def __init__(self, model, save_path, preprocessing_params):
         super().__init__()
         self._model = model
         self._save_path = save_path
+        self._preprocessing_params = preprocessing_params
 
     def on_epoch_end(self, epoch, logs=None):
-        self._model.save(self._save_path)
+        self._model.save(self._save_path, self._preprocessing_params)
 
 
 class DebugModelCallback(Callback):
@@ -85,6 +87,14 @@ class DebugModelCallback(Callback):
 
 
 def fit_model(model, train_path, val_path, char_table, batch_size, debug_interval, model_save_path, epochs, augment):
+    from pathlib import Path
+    path = Path(train_path)
+    print(path.parent)
+    with open(os.path.join(path.parent, 'preprocessing.json')) as f:
+        s = f.read()
+
+    preprocessing_params = json.loads(s)
+
     adapter = model.get_adapter()
 
     train_generator = LinesGenerator(train_path, char_table, batch_size,
@@ -98,7 +108,7 @@ def fit_model(model, train_path, val_path, char_table, batch_size, debug_interva
     output_debugger = DebugModelCallback(char_table, train_debug_generator, val_debug_generator,
                                          model, interval=debug_interval)
 
-    checkpoint = MyModelCheckpoint(model, model_save_path)
+    checkpoint = MyModelCheckpoint(model, model_save_path, preprocessing_params)
 
     cer_generator = CompiledDataset(train_path)
     cer_val_generator = CompiledDataset(val_path)
