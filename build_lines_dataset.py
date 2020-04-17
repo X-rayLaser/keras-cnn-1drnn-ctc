@@ -3,9 +3,12 @@ import json
 import os
 from importlib import import_module
 import shutil
+from keras_htr.data_source.synthetic import SyntheticSource
+from keras_htr.data_source.iam import IAMSource
 
 
 def get_class(fully_qualified_name):
+    print(fully_qualified_name)
     parts = fully_qualified_name.split('.')
     module_path = '.'.join(parts[:-1])
 
@@ -14,26 +17,40 @@ def get_class(fully_qualified_name):
     return getattr(class_module, class_name)
 
 
-def get_source(config):
-    if os.path.isfile(config):
-        with open(config) as f:
-            s = f.read()
+def get_source_class(class_name):
+    # match short pseudo names for source
+    if class_name == 'synthetic':
+        return SyntheticSource
 
-        d = json.loads(s)
+    if class_name == 'iam':
+        return IAMSource
 
-        source_class_name = d['source_class']
-        params = d['source_args']
-    else:
-        # treating config as fully-qualified class name
-        source_class_name = config
-        params = dict()
+    return get_class(class_name)
+
+
+def get_source(source_class_name):
+    params = dict()
 
     try:
-        source_class = get_class(source_class_name)
+        source_class = get_source_class(source_class_name)
     except (ModuleNotFoundError, AttributeError):
         raise Exception('Failed importing class {}'.format(source_class_name))
 
     return source_class(**params)
+
+
+def get_preprocessor(arch):
+    allowed = ['cnn-1drnn-ctc', 'cnn-encoder-decoder']
+    if arch == 'cnn-1drnn-ctc':
+        fully_qualified_preprocessor = 'keras_htr.preprocessing.Cnn1drnnCtcPreprocessor'
+    elif arch == 'cnn-encoder-decoder':
+        fully_qualified_preprocessor = 'keras_htr.preprocessing.EncoderDecoderPreprocessor'
+    else:
+        s = ', '.join(allowed)
+        raise Exception('"{}" model architecture is unrecognized. Valid options: {}'.format(args.arch, s))
+
+    preprocessor_class = get_class(fully_qualified_preprocessor)
+    return preprocessor_class()
 
 
 if __name__ == '__main__':
@@ -41,26 +58,35 @@ if __name__ == '__main__':
 
     parser = argparse.ArgumentParser()
     parser.add_argument('--config', type=str, default='')
-    parser.add_argument('--source', type=str, default='keras_htr.data_source.synthetic.SyntheticSource')
-    parser.add_argument('--preprocessor', type=str, default='keras_htr.preprocessing.Cnn1drnnCtcPreprocessor')
-
+    parser.add_argument('--source', type=str, default='synthetic')
+    parser.add_argument('--arch', type=str, default='cnn-1drnn-ctc')
     parser.add_argument('--size', type=int, default=1000)
     parser.add_argument('--destination', type=str, default='lines_dataset')
 
     args = parser.parse_args()
     fully_qualified_source = args.source
     config = args.config
-    fully_qualified_preprocessor = args.preprocessor
+    arch = args.arch
     destination = args.destination
     size = args.size
 
     if config != '':
-        source = get_source(config)
+        with open(config) as f:
+            s = f.read()
+
+        d = json.loads(s)
+
+        source_class_name = d['source_class']
+        params = d['source_args']
+        if 'arch' in d:
+            arch = d['arch']
+
+        source_class = get_source_class(source_class_name)
+        source = source_class(**params)
     else:
         source = get_source(fully_qualified_source)
 
-    preprocessor_class = get_class(fully_qualified_preprocessor)
-    preprocessor = preprocessor_class()
+    preprocessor = get_preprocessor(arch)
 
     if not os.path.isdir(destination):
         os.makedirs(destination)
@@ -73,5 +99,3 @@ if __name__ == '__main__':
                              size=size, train_fraction=0.8, val_fraction=0.1)
     else:
         print('Aborting...')
-
-    # todo: import preprocessor from fully qualified class name, refactor

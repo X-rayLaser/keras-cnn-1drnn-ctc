@@ -1,0 +1,7 @@
+{
+  "source_class": "synthetic",
+  "source_args": {
+    "num_examples": 1500
+  },
+  "arch": "cnn-encoder-decoder"
+}

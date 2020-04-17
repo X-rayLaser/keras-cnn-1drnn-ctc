@@ -1,6 +1,5 @@
 import tensorflow as tf
 import argparse
-from keras_htr import recognize_line
 from keras_htr.char_table import CharTable
 from keras_htr.models.base import HTRModel
 from keras_htr import codes_to_string

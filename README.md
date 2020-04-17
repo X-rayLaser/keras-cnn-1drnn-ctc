@@ -31,7 +31,7 @@ Below is example of training 1D-LSTM model on synthetic images using SyntheticSo
 
 ## Build a dataset using synthetic words data source, store it in temp_ds folder
 ```
-python build_lines_dataset.py --source='keras_htr.data_source.synthetic.SyntheticSource' --destination=temp_ds
+python build_lines_dataset.py --source='keras_htr.data_source.synthetic.SyntheticSource' --destination=temp_ds --size=1000
 ```
 Note that the source argument expects a fully-qualified name of a class representing a data source.
 

@@ -203,7 +203,7 @@ if __name__ == '__main__':
 
     if args.arch == 'cnn-1drnn-ctc':
         fit_ctc_model(args)
-    elif args.arch == 'encoder-decoder-attention':
+    elif args.arch == 'cnn-encoder-decoder':
         fit_attention_model(args)
     else:
         raise Exception('{} model architecture is unrecognized'.format(args.arch))
