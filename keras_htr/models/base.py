@@ -1,5 +1,6 @@
 import tensorflow as tf
 import json
+import os
 
 
 class HTRModel:
@@ -28,6 +29,25 @@ class HTRModel:
         s = json.dumps(d)
         with open(params_path, 'w') as f:
             f.write(s)
+
+    @staticmethod
+    def create(model_path):
+        from .cnn_1drnn_ctc import CtcModel
+        from .encoder_decoder import ConvolutionalEncoderDecoderWithAttention
+
+        params_path = os.path.join(model_path, 'params.json')
+        with open(params_path) as f:
+            s = f.read()
+        d = json.loads(s)
+
+        class_name = d['model_class_name']
+
+        if class_name == 'CtcModel':
+            model = CtcModel.load(model_path)
+        else:
+            model = ConvolutionalEncoderDecoderWithAttention.load(model_path)
+
+        return model
 
 
 def compute_output_shape(input_shape):

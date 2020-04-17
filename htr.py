@@ -2,6 +2,8 @@ import tensorflow as tf
 import argparse
 from keras_htr import recognize_line
 from keras_htr.char_table import CharTable
+from keras_htr.models.base import HTRModel
+from keras_htr import codes_to_string
 
 
 if __name__ == '__main__':
@@ -18,8 +20,13 @@ if __name__ == '__main__':
 
     char_table = CharTable(char_table_path)
 
-    model = tf.keras.models.load_model(model_path, custom_objects={'tf': tf})
-    batch_size, image_height, image_width, channels = model.input_shape
+    model = HTRModel.create(model_path)
+    adapter = model.get_adapter()
+    image = tf.keras.preprocessing.image.load_img(image_path, color_mode="grayscale")
 
-    res = recognize_line(model, image_path, image_height, char_table)
+    inputs = adapter.adapt_x(image)
+
+    labels = model.predict(inputs)[0]
+    res = codes_to_string(labels, char_table)
+
     print('Recognized text: "{}"'.format(res))

@@ -2,9 +2,7 @@ from keras_htr.edit_distance import compute_cer
 import tensorflow as tf
 from keras_htr.char_table import CharTable
 import os
-import json
-from keras_htr.models.cnn_1drnn_ctc import CtcModel
-from keras_htr.models.encoder_decoder import ConvolutionalEncoderDecoderWithAttention
+from keras_htr.models.base import HTRModel
 from keras_htr.generators import CompiledDataset
 from keras_htr import codes_to_string
 
@@ -41,19 +39,9 @@ if __name__ == '__main__':
     char_table_path = os.path.join(os.path.dirname(dataset_path), 'character_table.txt')
     char_table = CharTable(char_table_path)
 
-    params_path = os.path.join(model_path, 'params.json')
-    with open(params_path) as f:
-        s = f.read()
-    d = json.loads(s)
-
-    class_name = d['model_class_name']
+    model = HTRModel.create(model_path)
 
     ds = CompiledDataset(dataset_path)
-
-    if class_name == 'CtcModel':
-        model = CtcModel.load(model_path)
-    else:
-        model = ConvolutionalEncoderDecoderWithAttention.load(model_path)
 
     adapter = model.get_adapter()
     run_demo(model, ds, char_table, adapter=adapter)

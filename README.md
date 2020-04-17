@@ -41,11 +41,11 @@ python train.py temp_ds --units=32 --epochs=35 --model_path=conv_lstm_model
 ```
 ## Run demo script
 ```
-python demo.py conv_lstm_model.h5 temp_ds/test
+python demo.py conv_lstm_model temp_ds/test
 ```
 ## Recognize handwriting
 ```
-python htr.py conv_lstm_model.h5 temp_ds/character_table.txt temp_ds/test/0.png
+python htr.py conv_lstm_model temp_ds/character_table.txt temp_ds/test/0.png
 ```
 
 # Data sources
