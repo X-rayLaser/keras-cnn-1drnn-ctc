@@ -55,11 +55,6 @@ A data source is a Python generator that yields raw examples in the form of tupl
 build a character table, collect useful meta-information about the data set such as 
 average image height, width and more.
 
-To train a model on your data, you need to create your subclass of Source class and 
-implement an iterator method that yields a pair (line_image, text) at each step.
-Here line_image is either a path to an image file or Pillow image object, the text 
-is a corresponding transcription.
-
 ## SyntheticSource
 
 It is generator of printed text examples
@@ -103,6 +98,34 @@ iam_database\
 Create 1000 training examples using IAM database:
 ```
 python build_lines_dataset.py --source='iam' --destination=temp_ds --size=1000
+```
+
+## Custom Source
+
+To train a model on your data, you need to create a subclass of Source class and 
+implement an iterator method that yields a pair (line_image, text) at each step.
+Here line_image is either a path to an image file or Pillow image object, the text 
+is a corresponding transcription.
+
+Let's create a dummy source that produces a total of 100 pairs of random images with some text.
+- create a python file mysource.py in keras_htr/data_source directory
+- create a subclass of Source class and implement its ```__iter__``` method.
+```
+import tensorflow as tf
+import numpy as np
+from keras_htr.data_source.base import Source
+
+
+class MySource(Source):
+    def __iter__(self):
+        for i in range(100):
+            a = np.round(np.random.random((300, 500, 1)) * 255)
+            image = tf.keras.preprocessing.image.array_to_img(a)
+            yield image, "Line of text {}".format(i)
+```
+- use this source by providing it's fully-qualified class name
+```
+python build_lines_dataset.py --source='keras_htr.data_source.mysource.MySource' --destination=temp_ds --size=100
 ```
 
 # References
