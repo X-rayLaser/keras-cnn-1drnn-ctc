@@ -5,8 +5,8 @@ from keras_htr.data_source.base import Source
 
 
 class IAMSource(Source):
-    def __init__(self, xml_root='iam_database/iam_database_xml',
-                 line_images_root='iam_database/iam_database_lines'):
+    def __init__(self, xml_root='iam_database/xml',
+                 line_images_root='iam_database/lines'):
         self._xml_root = xml_root
         self._images_root = line_images_root
         self._validate_paths()
