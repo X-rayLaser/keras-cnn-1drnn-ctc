@@ -129,6 +129,11 @@ class CtcModel(HTRModel):
         self.save_model_params(params_path, 'CtcModel', model_params, preprocessing_params)
         self._weights_model.save_weights(weights_path)
 
+        inference_model = self._get_inference_model()
+
+        inference_model_path = os.path.join(path, 'inference_model.h5')
+        inference_model.save(inference_model_path)
+
     @classmethod
     def load(cls, path):
         params_path = os.path.join(path, 'params.json')

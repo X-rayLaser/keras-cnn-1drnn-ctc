@@ -1,31 +1,48 @@
-# A toolkit for developing handwritten text recognition (HTR) pipelines
+# A toolkit for training neural networks to perform line-level Handwritten Text Recognition
 
-Easy to use toolkit for the rapid development of offline handwritten text recognition (HTR) system. 
-The toolkit provides a set of useful utilities and scripts for training and evaluating 
-models and performing line recognition. It is shipped with ready-to-train model 
-implementations for HTR tasks.
+It comes with ready-to-train models, evaluation metrics, automatic data preparation and more.
 
 ## Key features
 - built-in model implementations
 - automatic data pre-processing
-- built-in performance metrics: LER (label error rate)
-- data-set independence
+- training on your own data
+- built-in performance metrics: LER (Label Error Rate)
 - handwriting language independence
 
 ## Built-in models
 - CNN-1DRNN-CTC [1]
 
+# Pre-requisites
+- Python >= 3.6
+- TensorFlow >= 2.0
+- tested on Ubuntu
+
+# Installation
+```
+git clone https://github.com/X-rayLaser/Keras-HTR.git
+cd Keras-HTR
+```
+Optionally, create and activate a Python virtual environment:
+```
+virtualenv --python=/path/to/python3/executable venv
+. venv/bin/activate
+```
+Install dependencies
+```
+pip install -r requirements.txt
+```
+
 # Quick start
 
-Create working HTR system in just 4 steps:
-- Subclass Source class representing raw data examples
+Create working line-level HTR system in just 4 steps:
+- Create a subclass of Source class representing raw data examples
 - Use the data source to build a dataset
-- Train model with a particular architecture on the dataset
+- Train model with a particular architecture on that dataset
 - Take trained model and use it to perform recognition
 
 You only need to focus on the first step. Once you implement a class 
 for a data source, the steps that follow will automatically pre-process 
-the data,  train a neural network and save it.
+the data, train a neural network and save it.
 
 Below is example of training 1D-LSTM model on synthetic images using SyntheticSource class. 
 
@@ -37,8 +54,16 @@ Note that the source argument expects a fully-qualified name of a class represen
 
 ## Train a model
 ```
-python train.py temp_ds --units=32 --epochs=35 --model_path=conv_lstm_model
+python train.py temp_ds --units=128 --epochs=80 --model_path=conv_lstm_model
 ```
+The script will save a model at the end of each training epoch. A self-contained model for inference 
+will be saved as ```conv_lstm_model/inference_model.h5```.
+You can load the model later like so:
+```
+import tensorflow as tf
+tf.keras.models.load_model('conv_lstm_model/inference_model.h5', custom_objects={'tf': tf})
+```
+
 ## Run demo script
 ```
 python demo.py conv_lstm_model temp_ds/test
@@ -126,6 +151,21 @@ class MySource(Source):
 - use this source by providing it's fully-qualified class name
 ```
 python build_lines_dataset.py --source='keras_htr.data_source.mysource.MySource' --destination=temp_ds --size=100
+```
+
+# Training on IAM dataset
+
+Pre-requisite: you have to setup IAMSource first (see the section on IAMSource above).
+
+Prepare a dataset by extracting 8000 examples from IAM database and preprocessing them 
+(it might take a few minutes)
+```
+python build_lines_dataset.py --source='iam' --destination=temp_ds --size=8000
+```
+
+Begin training a cnn-1drnn-ctc model for 80 epochs using 256 hidden units in LSTM layers.
+```
+python train.py temp_ds --units=256 --epochs=80 --model_path=conv_lstm_model
 ```
 
 # References

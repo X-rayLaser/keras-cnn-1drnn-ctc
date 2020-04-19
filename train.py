@@ -196,7 +196,7 @@ if __name__ == '__main__':
     parser.add_argument('--model_path', type=str, default='conv_lstm_model')
     parser.add_argument('--lr', type=float, default=0.001)
     parser.add_argument('--batch_size', type=int, default=1)
-    parser.add_argument('--units', type=int, default=128)
+    parser.add_argument('--units', type=int, default=256)
     parser.add_argument('--epochs', type=int, default=100)
     parser.add_argument('--debug_interval', type=int, default=10)
     parser.add_argument('--augment', type=bool, default=False)
