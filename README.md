@@ -104,7 +104,7 @@ curl -o iam_database/xml.tgz -u <user_name> http://www.fki.inf.unibe.ch/DBs/iamD
 ```
 - download lines.tgz archive file (you will be prompted to enter your password)
 ```
-curl -o iam_database/lines.tgz -u <user_name> http://www.fki.inf.unibe.ch/DBs/iamDB/data/xml/xml.tgz
+curl -o iam_database/lines.tgz -u <user_name> http://www.fki.inf.unibe.ch/DBs/iamDB/data/lines/lines.tgz
 ```
 - extract both archives
 
