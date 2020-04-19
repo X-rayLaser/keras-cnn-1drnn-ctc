@@ -10,7 +10,6 @@ including things like data preprocessing, normalization, generating batches of t
 
 You can train the model on the IAM Handwriting dataset as well as your own. Also, 
 the code should work for arbitrary written language, not just English (at least in theory).
-It comes with ready-to-train models, evaluation metrics, automatic data preparation and more.
 
 ## Key features
 - built-in model implementations
