@@ -67,7 +67,7 @@ class CtcModel(HTRModel):
     def _create_inference_model(self):
         return tf.keras.Model(self.graph_input, self.y_pred)
 
-    def fit(self, train_generator, val_generator, *args, **kwargs):
+    def fit(self, train_generator, val_generator, compilation_params=None, training_params=None, **kwargs):
         steps_per_epoch = math.ceil(train_generator.size / train_generator.batch_size)
         val_steps = math.ceil(val_generator.size / val_generator.batch_size)
 
@@ -75,11 +75,24 @@ class CtcModel(HTRModel):
         lr = 0.001
 
         training_model = self._create_training_model()
-        training_model.compile(optimizer=tf.keras.optimizers.Adam(lr=lr), loss=loss, metrics=[])
 
-        print(kwargs)
+        compilation_params = compilation_params or {}
+        training_params = training_params or {}
+
+        if 'optimizer' in compilation_params:
+            optimizer = compilation_params['optimizer']
+        else:
+            optimizer = tf.keras.optimizers.Adam(lr=lr)
+
+        if 'metrics' in compilation_params:
+            metrics = compilation_params['metrics']
+        else:
+            metrics = []
+
+        training_model.compile(optimizer=optimizer, loss=loss, metrics=metrics)
+
         training_model.fit(train_generator.__iter__(), steps_per_epoch=steps_per_epoch,
-                           validation_data=val_generator.__iter__(), validation_steps=val_steps, *args, **kwargs)
+                           validation_data=val_generator.__iter__(), validation_steps=val_steps, **training_params)
 
     def _get_inference_model(self):
         return self._create_inference_model()

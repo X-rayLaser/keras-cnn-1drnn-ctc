@@ -10,7 +10,8 @@ class HTRModel:
     def get_adapter(self):
         raise NotImplementedError
 
-    def fit(self, train_gen, val_gen, *args, **kwargs):
+    def fit(self, train_generator, val_generator, compilation_params=None,
+            training_params=None, **kwargs):
         raise NotImplementedError
 
     def predict(self, inputs, **kwargs):

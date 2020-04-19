@@ -126,16 +126,29 @@ class ConvolutionalEncoderDecoderWithAttention(HTRModel):
         preprocessor.configure(**self._preprocessing_options)
         return preprocessor
 
-    def fit(self, train_generator, val_generator, *args, **kwargs):
+    def fit(self, train_generator, val_generator, compilation_params=None, training_params=None, **kwargs):
         steps_per_epoch = math.ceil(train_generator.size / train_generator.batch_size)
         val_steps = math.ceil(val_generator.size / val_generator.batch_size)
 
+        compilation_params = compilation_params or {}
+        training_params = training_params or {}
+
+        if 'optimizer' in compilation_params:
+            optimizer = compilation_params['optimizer']
+        else:
+            optimizer = tf.keras.optimizers.Adam(lr=0.001)
+
+        if 'metrics' in compilation_params:
+            metrics = compilation_params['metrics']
+        else:
+            metrics = []
+
         training_model = self._create_training_model()
 
-        training_model.compile(optimizer=tf.keras.optimizers.Adam(lr=0.001), loss='categorical_crossentropy', metrics=[])
+        training_model.compile(optimizer=optimizer, loss='categorical_crossentropy', metrics=metrics)
 
         training_model.fit(train_generator.__iter__(), steps_per_epoch=steps_per_epoch,
-                           validation_data=val_generator.__iter__(), validation_steps=val_steps, *args, **kwargs)
+                           validation_data=val_generator.__iter__(), validation_steps=val_steps, **training_params)
 
     def predict(self, inputs, **kwargs):
         X, sos, eos = inputs

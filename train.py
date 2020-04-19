@@ -11,6 +11,7 @@ import tensorflow as tf
 from keras_htr.edit_distance import compute_cer
 from keras_htr import codes_to_string
 import json
+from pathlib import Path
 
 os.environ["TF_CPP_MIN_LOG_LEVEL"] = "3"
 logging.getLogger("tensorflow").setLevel(logging.CRITICAL)
@@ -86,10 +87,10 @@ class DebugModelCallback(Callback):
             print('LER {}, "{}" -> "{}"'.format(cer, ground_true_text, predicted_text))
 
 
-def fit_model(model, train_path, val_path, char_table, batch_size, debug_interval, model_save_path, epochs, augment):
-    from pathlib import Path
+def fit_model(model, train_path, val_path, char_table, batch_size,
+              debug_interval, model_save_path, epochs, augment, lr):
     path = Path(train_path)
-    print(path.parent)
+
     with open(os.path.join(path.parent, 'preprocessing.json')) as f:
         s = f.read()
 
@@ -117,7 +118,9 @@ def fit_model(model, train_path, val_path, char_table, batch_size, debug_interva
 
     callbacks = [checkpoint, output_debugger, CER_metric]
 
-    model.fit(train_generator, val_generator, epochs=epochs, callbacks=callbacks)
+    compilation_params = dict(optimizer=tf.keras.optimizers.Adam(lr=lr))
+    training_params = dict(epochs=epochs, callbacks=callbacks)
+    model.fit(train_generator, val_generator, compilation_params, training_params)
 
 
 def fit_ctc_model(args):
@@ -146,7 +149,7 @@ def fit_ctc_model(args):
     model = CtcModel(units=units, num_labels=char_table.size,
                      height=image_height, channels=1)
 
-    fit_model(model, train_path, val_path, char_table, batch_size, debug_interval, model_save_path, epochs, augment)
+    fit_model(model, train_path, val_path, char_table, batch_size, debug_interval, model_save_path, epochs, augment, lr)
 
 
 def fit_attention_model(args):
@@ -182,7 +185,7 @@ def fit_attention_model(args):
                                                      max_text_length=max_text_length + 1,
                                                      sos=char_table.sos, eos=char_table.eos)
 
-    fit_model(model, train_path, val_path, char_table, batch_size, debug_interval, model_save_path, epochs, augment)
+    fit_model(model, train_path, val_path, char_table, batch_size, debug_interval, model_save_path, epochs, augment, lr)
 
 
 if __name__ == '__main__':
