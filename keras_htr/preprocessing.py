@@ -53,6 +53,21 @@ def pad_image_height(img, target_height):
     return scipy.pad(a, pad_width=[vertical_padding, horizontal_padding, depth_padding])
 
 
+def pad_array_width(a, target_width):
+    width = a.shape[1]
+
+    right_padding = target_width - width
+
+    if right_padding < 0:
+        # if image width is larger than target_width, crop the image
+        return a[:, :target_width]
+
+    horizontal_padding = (0, right_padding)
+    vertical_padding = (0, 0)
+    depth_padding = (0, 0)
+    return scipy.pad(a, pad_width=[vertical_padding, horizontal_padding, depth_padding])
+
+
 def pad_image(img, target_height, target_width):
     a = tf.keras.preprocessing.image.img_to_array(img)
 
@@ -187,20 +202,8 @@ class EncoderDecoderPreprocessor(BasePreprocessor):
     def process(self, image_path):
         image_array = get_image_array(image_path, self._average_height)
         a = binarize(image_array)
-        a = self._pad_array_width(a, self._max_image_width)
+        a = pad_array_width(a, self._max_image_width)
         return tf.keras.preprocessing.image.array_to_img(a)
-
-    def _pad_array_width(self, a, target_width):
-        width = a.shape[1]
-
-        right_padding = target_width - width
-
-        assert right_padding >= 0
-
-        horizontal_padding = (0, right_padding)
-        vertical_padding = (0, 0)
-        depth_padding = (0, 0)
-        return scipy.pad(a, pad_width=[vertical_padding, horizontal_padding, depth_padding])
 
     def save(self, path):
         d = dict(average_height=self._average_height,
