@@ -57,6 +57,10 @@ Note that the source argument expects a fully-qualified name of a class represen
 ```
 python train.py temp_ds --units=64 --epochs=80 --model_path=conv_lstm_model
 ```
+After every 10 training epochs, the script will show predictions made by the neural network. 
+In addition, it will compute and show the LER metric for training and validation examples. 
+You can specify how frequently you would like to do this step via --debug_interval argument (default is 10).
+
 The script will save a model at the end of each training epoch. Therefore, you may interrupt (Ctrl+C) the script when
 a loss becomes small enough. A self-contained model for inference will be saved in ```conv_lstm_model/inference_model.h5```.
 You can load the model later like so:
@@ -69,6 +73,9 @@ tf.keras.models.load_model('conv_lstm_model/inference_model.h5', custom_objects=
 ```
 python demo.py conv_lstm_model temp_ds/test
 ```
+For each image in a given path, the script will display it on the screen, make a prediction, 
+compare it with ground truth text and compute the LER score.
+
 ## Recognize handwriting
 Recognize an image taken from a test dataset after necessary preprocessing was already applied
 ```
