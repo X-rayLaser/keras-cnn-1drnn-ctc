@@ -1,6 +1,15 @@
 # A toolkit for training neural networks to perform line-level Handwritten Text Recognition (HTR)
 
 The toolkit is built on top of TensorFlow/Keras.
+It is shipped with a ready-to-train CNN-1DRNN-CTC [1] model and all the surrounding code enabling training, 
+performance evaluation, and prediction.
+
+In a nutshell, you only have to tell the toolkit how to obtain the raw handwriting 
+examples of a form line **image -> text**. The rest will be taken care of automatically 
+including things like data preprocessing, normalization, generating batches of training data, training, etc.
+
+You can train the model on the IAM Handwriting dataset as well as your own. Also, 
+the code should work for arbitrary written language, not just English (at least in theory).
 It comes with ready-to-train models, evaluation metrics, automatic data preparation and more.
 
 ## Key features
